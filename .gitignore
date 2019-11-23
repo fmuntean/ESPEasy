@@ -42,9 +42,13 @@ tools/vagrant/.vagrant/
 tools/vagrant/build/
 
 tools/vagrant/Custom.h
+
+
+.buildcache/
+
 
-.buildcache/
-
-tools/vagrant/pio_envlist.txt
+tools/vagrant/pio_envlist.txt
+dist
+
 
 build_output/
