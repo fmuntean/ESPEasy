@@ -1,5 +1,5 @@
 #define WIFI_RECONNECT_WAIT                20000  // in milliSeconds
-#define WIFI_AP_OFF_TIMER_DURATION         60000  // in milliSeconds
+#define WIFI_AP_OFF_TIMER_DURATION         60000  // in milliSeconds use zero to keep the AP mode on
 #define WIFI_CONNECTION_CONSIDERED_STABLE  300000 // in milliSeconds
 #define WIFI_ALLOW_AP_AFTERBOOT_PERIOD     5      // in minutes
 
@@ -115,7 +115,7 @@ bool WiFiConnected() {
     // Only allow the automatic AP mode in the first N minutes after boot.
     if ((wdcounter / 2) < WIFI_ALLOW_AP_AFTERBOOT_PERIOD) {
       timerAPstart = millis() + WIFI_RECONNECT_WAIT;
-      timerAPoff = timerAPstart + WIFI_AP_OFF_TIMER_DURATION;
+      timerAPoff = WIFI_AP_OFF_TIMER_DURATION==0 ? 0 : timerAPstart + WIFI_AP_OFF_TIMER_DURATION;
     }
   }
 
@@ -283,8 +283,12 @@ void WifiScan(bool async, bool quick) {
   lastGetScanMoment = millis();
   if (quick) {
     #ifdef ESP8266
-    // Only scan a single channel if the RTC.lastWiFiChannel is known to speed up connection time.
-    WiFi.scanNetworks(async, show_hidden, RTC.lastWiFiChannel);
+      #ifdef FORCE_PRE_2_5_0
+        WiFi.scanNetworks(async, show_hidden);
+      #else
+      // Only scan a single channel if the RTC.lastWiFiChannel is known to speed up connection time.
+      WiFi.scanNetworks(async, show_hidden, RTC.lastWiFiChannel);
+      #endif
     #else
     WiFi.scanNetworks(async, show_hidden);
     #endif
@@ -417,7 +421,7 @@ void setAPinternal(bool enable)
       }
     }
     #endif // ifdef ESP32
-    timerAPoff = millis() + WIFI_AP_OFF_TIMER_DURATION;
+    timerAPoff = WIFI_AP_OFF_TIMER_DURATION==0 ? 0: millis() + WIFI_AP_OFF_TIMER_DURATION;
   } else {
     if (dnsServerActive) {
       dnsServerActive = false;
