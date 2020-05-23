@@ -1,7 +1,7 @@
 #include "CompiletimeDefines.h"
 
 #ifndef SET_BUILD_BINARY_FILENAME
-# define SET_BUILD_BINARY_FILENAME "firmware.bin"
+# define SET_BUILD_BINARY_FILENAME "firmware"
 #endif // ifndef SET_BUILD_BINARY_FILENAME
 
 #ifndef SET_BUILD_PLATFORM
@@ -13,7 +13,7 @@
 #endif // ifndef SET_BUILD_GIT_HEAD
 
 String get_binary_filename() {
-  return F(SET_BUILD_BINARY_FILENAME);
+  return F(SET_BUILD_BINARY_FILENAME ".bin");
 }
 
 String get_build_time() {
