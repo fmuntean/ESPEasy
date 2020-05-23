@@ -1106,6 +1106,7 @@ void ResetFactory()
       setControllerUser(0, ControllerSettings, F(DEFAULT_CONTROLLER_USER));
       setControllerPass(0, ControllerSettings, F(DEFAULT_CONTROLLER_PASS));
 
+    ControllerSettings.DeleteOldest = DEFAULT_DELETE_OLDEST; //MFD: i want to delete oldest MQTT messages
       SaveControllerSettings(0, ControllerSettings);
     }
   }
