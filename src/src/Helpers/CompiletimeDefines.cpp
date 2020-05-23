@@ -7,7 +7,7 @@
 // This Python script will define the following defines:
 
 #ifndef SET_BUILD_BINARY_FILENAME
-# define SET_BUILD_BINARY_FILENAME "firmware.bin"
+# define SET_BUILD_BINARY_FILENAME "firmware"
 #endif // ifndef SET_BUILD_BINARY_FILENAME
 
 #ifndef SET_BUILD_PLATFORM
@@ -23,10 +23,10 @@
 
 String get_binary_filename() {
  #if !defined(CORE_POST_2_5_0) && !defined(ESP32)
-   return F("firmware.bin");
- #else
-    return F(SET_BUILD_BINARY_FILENAME);
- #endif
+    return F("firmware.bin");
+  #else
+    return F(SET_BUILD_BINARY_FILENAME ".bin");
+  #endif
 }
 
 String get_build_time() {
@@ -51,14 +51,14 @@ String get_build_platform() {
  #if !defined(CORE_POST_2_5_0) && !defined(ESP32)
     return "";
   #else
-    return F(SET_BUILD_PLATFORM);
- #endif
+  return F(SET_BUILD_PLATFORM);
+  #endif
 }
 
 String get_git_head() {
  #if !defined(CORE_POST_2_5_0) && !defined(ESP32)
-   return "";
- #else
-    return F(SET_BUILD_GIT_HEAD);
- #endif
+    return "";
+  #else
+  return F(SET_BUILD_GIT_HEAD);
+  #endif
 }

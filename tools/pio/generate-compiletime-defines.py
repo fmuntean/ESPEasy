@@ -9,9 +9,9 @@ import json
 
 def create_binary_filename():
     today = date.today()
-    d1 = today.strftime("%Y%m%d")
-    return 'ESP_Easy_mega_{}_{}'.format(d1, env["PIOENV"])
-
+    d1 = today.strftime("%Y_%m_%d")
+    #return 'ESP_Easy_mega_{}_{}'.format(d1, env["PIOENV"])
+    return '{}_{}'.format(env["PIOENV"],d1)
 
 def get_git_description():
     try:

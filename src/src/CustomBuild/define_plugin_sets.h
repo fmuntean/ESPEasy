@@ -281,7 +281,9 @@ To create/register a plugin, you have to :
     #define USES_C013   // ESPEasy P2P network
 
 //    #define NOTIFIER_SET_STABLE
+    #ifndef NOTIFIER_SET_NONE
     #define NOTIFIER_SET_NONE
+    #endif
 
     #define PLUGIN_SET_NONE
 
@@ -383,6 +385,95 @@ To create/register a plugin, you have to :
         #undef WEBSERVER_RULES_DEBUG
     #endif
 #endif
+
+
+// MFD: plugins for MX3166
+#ifdef MFD_PLUGIN_SET_MX3166
+    # define  PLUGIN_SET_NONE
+    # define  CONTROLLER_SET_NONE
+    # define  NOTIFIER_SET_NONE
+#endif // ifdef MFD_PLUGIN_SET_MX3166
+
+
+// MFD my minimal plugins for use with 1M devices like ESP07
+#ifdef MFD_PLUGIN_SET_MINIMAL
+    # define CONTROLLER_SET_NONE
+
+    # ifdef USES_C008 
+        #  undef USES_C008 // Generic HTTP
+    # endif 
+    # ifdef USES_C013
+        #  undef USES_C013 // ESPEasy P2P network
+    # endif 
+
+    # define USES_C005 // OpenHAB MQTT
+
+    # define PLUGIN_SET_NONE
+
+    # define USES_P001 // Switch
+
+#if FEATURE_ADC_VCC==false
+    # define USES_P002 // ADC
+#endif
+
+    # define USES_P026 // SysInfo
+    # define USES_P033 // Dummy
+    
+    #ifndef NOTIFIER_SET_NONE
+    # define  NOTIFIER_SET_NONE
+    #endif
+
+    #undef USES_N001
+    #undef USES_N002 
+
+#endif // ifdef MFD_PLUGIN_SET_MINIMAL
+
+// This selects only the plugins I use in my prod boards
+#ifdef MFD_PLUGIN_SET_PROD
+    # define PLUGIN_SET_NONE
+
+    
+    # define USES_P001 // Switch
+    # define USES_P002 // ADC
+    # define USES_P003 // Pulse
+    # define USES_P014 // SI7021
+
+    # define USES_P017 // PN532 RFID reader
+
+    # define USES_P025 // ADS1115
+    # define USES_P026 // SysInfo
+    # define USES_P028 // BME280
+    # define USES_P033 // Dummy
+    # define USES_P069 // LM75A Temperature Sensor
+
+    #define USES_P097   // Touch (ESP32)
+
+    # define USES_P105 //RGBW Light
+    # define USES_P123 // SI7013 Temperature Humindity and ADC
+// # define USES_P129 // RC522 RFID reader
+    # define USES_P200 // ADS1115 Thermistor
+
+    # define CONTROLLER_SET_NONE
+    # define USES_C005 // OpenHAB MQTT
+
+// # define NOTIFIER_SET_NONE //MFD: setting this removes the notification page
+    # ifdef NOTIFIER_SET_STABLE
+        #  undef NOTIFIER_SET_STABLE
+    # endif // ifdef NOTIFIER_SET_STABLE
+    # ifdef NOTIFIER_SET_TESTING
+        #  undef NOTIFIER_SET_TESTING
+    # endif // ifdef NOTIFIER_SET_TESTING
+    # ifdef NOTIFIER_SET_EXPERIMENTAL
+        #  undef NOTIFIER_SET_EXPERIMENTAL
+    # endif // ifdef NOTIFIER_SET_EXPERIMENTAL
+    # ifdef NOTIFIER_SET_NONE
+        #  undef NOTIFIER_SET_NONE
+    # endif // ifdef NOTIFIER_SET_NONE
+    # define USES_N002  // Buzzer
+
+#endif      // ifdef MFD_PLUGIN_SET_PROD
+
+
 
 
 /******************************************************************************\
