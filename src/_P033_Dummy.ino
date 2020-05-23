@@ -29,6 +29,7 @@ boolean Plugin_033(byte function, struct EventStruct *event, String& string)
         Device[deviceCount].ValueCount = 4;
         Device[deviceCount].SendDataOption = true;
         Device[deviceCount].TimerOption = true;
+        Device[deviceCount].TimerOptional = true; //MFD: adding this to allow interval=0 for sending data only when changing.
         Device[deviceCount].GlobalSyncOption = true;
         break;
       }
