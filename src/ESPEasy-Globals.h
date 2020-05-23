@@ -118,7 +118,7 @@ extern NotificationStruct Notification[NPLUGIN_MAX];
 #define FS_NO_GLOBALS
 #if defined(ESP8266)
   #include "core_version.h"
-  #define NODE_TYPE_ID      NODE_TYPE_ID_ESP_EASYM_STD
+  #define NODE_TYPE_ID                        NODE_TYPE_ID_ESP_EASYM_STD
   #define FILE_CONFIG       "config.dat"
   #define FILE_SECURITY     "security.dat"
   #define FILE_NOTIFICATION "notification.dat"
@@ -135,7 +135,9 @@ extern NotificationStruct Notification[NPLUGIN_MAX];
   #include <ESP8266WiFi.h>
   //#include <ESP8266Ping.h>
   #include <DNSServer.h>
+ #ifdef USE_SERVO
   #include <Servo.h>
+ #endif
   #ifndef LWIP_OPEN_SRC
   #define LWIP_OPEN_SRC
   #endif
@@ -156,10 +158,10 @@ extern NotificationStruct Notification[NPLUGIN_MAX];
     extern "C" uint32_t _FS_page;
     extern "C" uint32_t _FS_block;
   #else
-    extern "C" uint32_t _SPIFFS_start;
-    extern "C" uint32_t _SPIFFS_end;
-    extern "C" uint32_t _SPIFFS_page;
-    extern "C" uint32_t _SPIFFS_block;
+  extern "C" uint32_t _SPIFFS_start;
+  extern "C" uint32_t _SPIFFS_end;
+  extern "C" uint32_t _SPIFFS_page;
+  extern "C" uint32_t _SPIFFS_block;
   #endif
 
   #ifdef FEATURE_MDNS
