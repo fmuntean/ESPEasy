@@ -123,7 +123,19 @@ void handle_notifications() {
         html_TD();
         addHtml(String(NotificationSettings.Port));
       }
-      else {
+      else
+      {
+          //MFD: we display the GPIO
+          if (NotificationSettings.Pin1>0){
+            TXBuffer += F("GPIO-");
+            TXBuffer += NotificationSettings.Pin1;
+          }
+          if (NotificationSettings.Pin2>0)
+          {
+            html_BR();
+            TXBuffer += F("GPIO-");
+            TXBuffer += NotificationSettings.Pin2;
+          }
         html_TD(3);
       }
     }
