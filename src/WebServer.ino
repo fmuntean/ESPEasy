@@ -277,6 +277,10 @@ void WebServerInit()
   web_server.on(F("/timingstats_json"),  handle_timingstats_json);
   web_server.on(F("/upload_json"),       HTTP_POST, handle_upload_json, handleFileUpload);
   web_server.on(F("/wifiscanner_json"),  handle_wifiscanner_json);
+#else
+  #ifdef SHOW_SYSINFO_JSON
+    web_server.on(F("/sysinfo_json"),      handle_sysinfo_json);
+  #endif
 #endif // WEBSERVER_NEW_UI
 
   web_server.onNotFound(handleNotFound);
@@ -850,18 +854,23 @@ boolean isLoggedIn()
   // return server.requestAuthentication(DIGEST_AUTH, www_realm);
   // Digest Auth Method with Custom realm and Failure Response
   {
+#ifdef CORE_2_3_0
+      Webserver.requestAuthentication();
+      return false;
+#else
 #ifdef CORE_PRE_2_5_0
 
-    // See https://github.com/esp8266/Arduino/issues/4717
-    HTTPAuthMethod mode = BASIC_AUTH;
+        // See https://github.com/esp8266/Arduino/issues/4717
+        HTTPAuthMethod mode = BASIC_AUTH;
 #else // ifdef CORE_PRE_2_5_0
-    HTTPAuthMethod mode = DIGEST_AUTH;
+        HTTPAuthMethod mode = DIGEST_AUTH;
 #endif // ifdef CORE_PRE_2_5_0
     String message = F("Login Required (default user: ");
     message += www_username;
     message += ')';
     web_server.requestAuthentication(mode, message.c_str());
     return false;
+#endif
   }
   return true;
 }
