@@ -38,7 +38,11 @@
 
 
 #ifdef WEBSERVER_NEW_UI
+ #define SHOW_SYSINFO_JSON
+#endif
 
+
+#ifdef SHOW_SYSINFO_JSON
 // ********************************************************************************
 // Web Interface sysinfo page
 // ********************************************************************************
