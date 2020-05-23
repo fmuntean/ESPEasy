@@ -38,8 +38,10 @@ enum
   BMP280_REGISTER_PRESSUREDATA       = 0xF7,
   BMP280_REGISTER_TEMPDATA           = 0xFA,
 
-  BMP280_CONTROL_SETTING             = 0x57, // Oversampling: 16x P, 2x T, normal mode
-  BMP280_CONFIG_SETTING              = 0xE0, // Tstandby 1000ms, filter 16, 3-wire SPI Disable
+  //BMP280_CONTROL_SETTING             = 0x57, // Oversampling: 16x P, 2x T, normal mode
+  BMP280_CONTROL_SETTING             = 0x21, // Oversampling: 0x P, 1x T, forced mode
+  //BMP280_CONFIG_SETTING              = 0xE0, // Tstandby 1000ms, filter 16, 3-wire SPI Disable
+  BMP280_CONFIG_SETTING              = 0x80, // Tstandby 1000ms, filter off, 3-wire SPI Disable
 };
 
 typedef struct
