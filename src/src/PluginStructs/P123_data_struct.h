@@ -1,159 +1,114 @@
 #ifndef PLUGINSTRUCTS_P123_DATA_STRUCT_H
 #define PLUGINSTRUCTS_P123_DATA_STRUCT_H
 
-#include "../../_Plugin_Helper.h"
-
 #ifdef USES_P123
 
-# include "../Helpers/ESPEasy_TouchHandler.h"
+#include "../../_Plugin_Helper.h"
 
-# include <bb_captouch.h>
+// ======================================
+// SI7013 sensor
+// ======================================
+#define SI7021_I2C_ADDRESS      0x40 // I2C address for the sensor
+#define SI7013_I2C_ADDRESS      0x41 // I2C address for the sensor
+#define SI7013_READ_TEMP_FROM_HUM    0xE0 // Read Temp only after a RH conversion done this does not have checksum byte
 
-# ifndef LIMIT_BUILD_SIZE
-#  define PLUGIN_123_DEBUG      // Additional debugging information
-# else // ifndef LIMIT_BUILD_SIZE
-#  ifndef P123_LIMIT_BUILD_SIZE // Can be set from elsewhere
-#   define P123_LIMIT_BUILD_SIZE
-#  endif // ifndef P123_LIMIT_BUILD_SIZE
-# endif // ifndef LIMIT_BUILD_SIZE
+#define SI7013_MEASURE_HUM      0xF5 // No hold
+#define SI7013_MEASURE_TEMP     0xF3 // No hold
 
-# if defined(BUILD_NO_DEBUG) && defined(PLUGIN_123_DEBUG)
-#  undef PLUGIN_123_DEBUG
-# endif // if defined(BUILD_NO_DEBUG) && defined(PLUGIN_123_DEBUG)
+#define SI7013_MEASURE_TEMP_HM  0xE3 // Default hold Master
+#define SI7013_MEASURE_HUM_HM   0xE5 // Default hold Master
+#define SI7013_WRITE_REG1       0xE6
+#define SI7013_READ_REG1        0xE7
+#define SI7013_SOFT_RESET       0xFE
 
-# define P123_I2C_ADDRESS           PCONFIG(6)
-# define P123_CONFIG_DISPLAY_TASK   PCONFIG(0)
+#define SI7013_READ_ADC         0xEE
+#define SI7013_READ_REG2        0x10
+#define SI7013_WRITE_REG2       0x50
 
-# define P123_CONFIG_FLAGS          PCONFIG_ULONG(0) // All flags
-# define P123_CONFIG_FLAG_TOUCHTYPE 0                // Flag indexes
+#ifndef SI7013_REG2_DEFAULT
+  #define SI7013_REG2_DEFAULT     0x46 //set last three bits (VIN bufered, Vref=VDD, VOUT=GND) and No-Hold for bit 6
+#endif
 
-// We're storing an int8_t in range -128..127 in an uin8_t
-# define P123_GET_TOUCH_TYPE        (get8BitFromUL(P123_CONFIG_FLAGS, P123_CONFIG_FLAG_TOUCHTYPE) - 128)
-# define P123_SET_TOUCH_TYPE(T) (set8BitToUL(P123_CONFIG_FLAGS, P123_CONFIG_FLAG_TOUCHTYPE, (T) + 128))
+#define SI7013_ID1_CMD          0xFA0F      /**< Read Electronic ID 1st Byte */
+#define SI7013_ID2_CMD          0xFCC9      /**< Read Electronic ID 2nd Byte */
+#define SI7013_FIRMVERS_CMD     0x84B8      // Read Firmware Revision
 
-# define P123_INTERRUPTPIN          (CONFIG_PIN1)
-# define P123_RESETPIN              (CONFIG_PIN2)
+#define SI7013_REV_1 0xff /**< Sensor revision 1 */
+#define SI7013_REV_2 0x20 /**< Sensor revision 2 */
 
-# define P123_COLOR_DEPTH           PCONFIG_LONG(1)
-# define P123_CONFIG_THRESHOLD      PCONFIG(1)
-# define P123_CONFIG_ROTATION       PCONFIG(2)
-# define P123_CONFIG_X_RES          PCONFIG(3)
-# define P123_CONFIG_Y_RES          PCONFIG(4)
-# define P123_CONFIG_VTYPE          PCONFIG(5)
+// SI7013 Sensor resolution
+// default at power up is SI7013_RESOLUTION_14T_12RH
+#define SI7013_RESOLUTION_14T_12RH 0x00 // 12 bits RH / 14 bits Temp
+#define SI7013_RESOLUTION_13T_10RH 0x80 // 10 bits RH / 13 bits Temp
+#define SI7013_RESOLUTION_12T_08RH 0x01 //  8 bits RH / 12 bits Temp
+#define SI7013_RESOLUTION_11T_11RH 0x81 // 11 bits RH / 11 bits Temp
+#define SI7013_RESOLUTION_MASK 0B01111110
 
-# define P123_CONFIG_DISPLAY_PREV   PCONFIG(7)
 
-// Default settings values
-# define P123_TS_THRESHOLD          40            // Threshold before the value is registered as a proper touch
-# define P123_TS_ROTATION           0             // Rotation 0-3 = 0/90/180/270 degrees
-# define P123_TS_X_RES              320           // Pixels, should match with the screen it is mounted on
-# define P123_TS_Y_RES              480
+#define SI7013_MEASURMENT_DELAY 100 //delay in milliseconds for reading the values
+#define SI7013_DELAY            10  //delay 10 miliseconds between the states if we need more time we check it inside the state machine
 
-# define P123_TOUCH_X_NATIVE        P123_TS_X_RES // Native touchscreen resolution, same as default display resolution
-# define P123_TOUCH_Y_NATIVE        P123_TS_Y_RES
 
-# define P123_ROTATION_0            0
-# define P123_ROTATION_90           1
-# define P123_ROTATION_180          2
-# define P123_ROTATION_270          3
-
-enum class P123_TouchType_e : int8_t {
-  Automatic = -1,
-  FT62x6    = 0, // Also used as offset in I2C address array
-  GT911_1   = 1,
-  GT911_2   = 2,
-  CST820    = 3,
-  CST226    = 4,
-  AXS15231  = 5,
-  CHSC5816  = 6,
+enum class P123_state {
+  Uninitialized = 0,
+  Ready,
+  Wait_for_HUM,
+  Wait_for_Temp,
+  Wait_for_ADC,
+  New_values_available,
+  Error
 };
 
-const __FlashStringHelper* toString(P123_TouchType_e tType);
 
-// Data structure
-struct P123_data_struct : public PluginTaskData_base
-{
-  P123_data_struct(P123_TouchType_e touchType);
-  ~P123_data_struct();
+struct P123_data_struct : public PluginTaskData_base {
+  private: 
+    int8_t  begin(uint8_t i2caddr, uint8_t resolution);
+    uint8_t checkCRC(uint16_t data, uint8_t check);
+    int8_t  readRegister(uint8_t i2caddr, const uint8_t reg, uint8_t * value);
+    int8_t  startConv(uint8_t i2caddr, uint8_t datatype, uint8_t resolution);
+    int8_t  readHumidity(uint8_t i2caddr, uint8_t resolution);
+    int8_t  requestTemperature(uint8_t i2caddr);
+    int8_t  readTemperature(uint8_t i2caddr, uint8_t resolution);
+    int8_t  readValues(uint8_t i2caddr, uint8_t resolution, uint8_t filter_power);
+    int8_t  requestADC(uint8_t i2caddr);
+    int8_t  readADC(uint8_t i2caddr, uint8_t filter_power);
+    int8_t  setResolution(uint8_t i2caddr, uint8_t resolution);
+    int8_t  softReset(uint8_t i2caddr);
+    int8_t  readSerialNumber(uint8_t i2caddr);
+    int8_t  readRevision(uint8_t i2caddr);
 
-  static bool      plugin_i2c_has_address(int Par1);
-  static uint8_t   plugin_i2c_address(P123_TouchType_e touchType);
+    bool    initialized() const;
 
-  P123_TouchType_e getTouchType();
-  int              getBBCapTouchType(P123_TouchType_e touchType);
+    unsigned inline char ReadStatus(uint8_t address);
 
-  void             reset();
-  bool             init(struct EventStruct *event);
-  bool             isInitialized() const;
+  // **************************************************************************/
+  // Read temperature
+  // **************************************************************************/
+  float readTemperature();
 
-  bool             plugin_webform_load(struct EventStruct *event);
-  bool             plugin_webform_save(struct EventStruct *event);
-  bool             plugin_write(struct EventStruct *event,
-                                const String      & string);
-  bool             plugin_fifty_per_second(struct EventStruct *event);
-  bool             plugin_get_config_value(struct EventStruct *event,
-                                           String            & string);
+  // **************************************************************************/
+  // Read humidity
+  // **************************************************************************/
+  float readHumidity();
 
-  void             loadTouchObjects(struct EventStruct *event);
-  bool             touched();
-  void             readData(int16_t& x,
-                            int16_t& y,
-                            int16_t& z,
-                            int16_t& ox,
-                            int16_t& oy);
+  
+  public:
+    P123_data_struct();
 
-  void setRotation(uint8_t n);
-  void setRotationFlipped(bool _flipped);
-  bool isValidAndTouchedTouchObject(const int16_t& x,
-                                    const int16_t& y,
-                                    String       & selectedObjectName,
-                                    int8_t       & selectedObjectIndex);
-  int8_t  getTouchObjectIndex(struct EventStruct *event,
-                              const String      & touchObject,
-                              bool                isButton = false);
-  bool    setTouchObjectState(struct EventStruct *event,
-                              const String      & touchObject,
-                              bool                state);
-  bool    setTouchButtonOnOff(struct EventStruct *event,
-                              const String      & touchObject,
-                              bool                state);
-  void    scaleRawToCalibrated(int16_t& x,
-                               int16_t& y);
-
-  int16_t getButtonGroup() const;
-  bool    validButtonGroup(int16_t buttonGroup,
-                           bool    ignoreZero = false);
-  bool    setButtonGroup(struct EventStruct *event,
-                         int16_t             buttonGroup);
-  bool    nextButtonGroup(struct EventStruct *event);
-  bool    prevButtonGroup(struct EventStruct *event);
-  bool    nextButtonPage(struct EventStruct *event);
-  bool    prevButtonPage(struct EventStruct *event);
-  void    displayButtonGroup(struct EventStruct *event,
-                             int16_t             buttonGroup,
-                             int8_t              mode = 0);
-  bool    displayButton(struct EventStruct *event,
-                        const int8_t      & buttonNr,
-                        int16_t             buttonGroup = -1,
-                        int8_t              mode        = 0);
-
-private:
-
-  // This is initialized by calling init()
-  BBCapTouch *touchscreen = nullptr;
-  uint8_t     _rotation   = 0u;
-  uint16_t    _ts_x_res   = 0u;
-  uint16_t    _ts_y_res   = 0u;
-
-  int16_t          _i2caddr{};
-  int16_t          _resetPin     = -1;
-  int16_t          _interruptPin = -1;
-  P123_TouchType_e _touchType;
-
-  TOUCHINFO touchInfo;
-
-  ESPEasy_TouchHandler *touchHandler = nullptr;
+    // Only perform the measurements with big interval to prevent the sensor from warming up.
+    bool update(uint8_t i2caddr, uint8_t resolution, uint8_t filter_power);
+  
+    float              last_hum_val      = 0.0f; //uint16_t
+    float              last_temp_val     = 0.0f; //int16_t
+    int32_t            last_adc_val      = 0;
+    unsigned long      last_measurement  = 0;
+    P123_state         state             = P123_state::Uninitialized;
 };
+
+
+//uint8_t MOVING_AVERAGE_power 4 //2^4
+
 
 #endif // ifdef USES_P123
-#endif // ifndef PLUGINSTRUCTS_P123_DATA_STRUCT_H
+
+#endif // PLUGINSTRUCTS_P123_DATA_STRUCT_H
