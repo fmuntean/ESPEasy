@@ -4,7 +4,11 @@
 #include "src/Static/WebStaticData.h"
 
 #ifdef WEBSERVER_NEW_UI
+ #define SHOW_SYSINFO_JSON
+#endif
 
+
+#ifdef SHOW_SYSINFO_JSON
 // ********************************************************************************
 // Web Interface sysinfo page
 // ********************************************************************************
@@ -97,8 +101,8 @@ void handle_sysinfo_json() {
   json_number(F("md5_check"), String(CRCValues.checkPassed()));
   json_prop(F("build_time"), get_build_time());
   json_prop(F("filename"),   getValue(LabelType::BINARY_FILENAME));
-  json_prop(F("build_platform")), getValue(LabelType::BUILD_PLATFORM);
-  json_prop(F("git_head")), getValue(LabelType::GIT_HEAD);
+  json_prop(F("build_platform"), getValue(LabelType::BUILD_PLATFORM));
+  json_prop(F("git_head"), getValue(LabelType::GIT_HEAD));
   json_close();
 
   json_open(false, F("esp"));
