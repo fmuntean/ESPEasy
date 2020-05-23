@@ -17,13 +17,21 @@
 
 
 void ESPEasy_time_zone::getDefaultDst_flash_values(uint16_t& start, uint16_t& end) {
-  // DST start: Last Sunday March    2am => 3am
-  // DST end:   Last Sunday October  3am => 2am
-  TimeChangeRule CEST(TimeChangeRule::Last, TimeChangeRule::Sun, TimeChangeRule::Mar, 2, Settings.TimeZone); // Summer Time
-  TimeChangeRule CET(TimeChangeRule::Last, TimeChangeRule::Sun, TimeChangeRule::Oct, 3, Settings.TimeZone);  // Standard Time
 
-  start = CEST.toFlashStoredValue();
-  end   = CET.toFlashStoredValue();
+  //MFD: set default timezone to EST
+  // US Eastern Time Zone (New York)
+  TimeChangeRule usEDT(TimeChangeRule::Second, TimeChangeRule::Sun, TimeChangeRule::Mar, 2, -240);  // Eastern Daylight Time = UTC - 4 hours
+  TimeChangeRule usEST(TimeChangeRule::First, TimeChangeRule::Sun, TimeChangeRule::Nov, 2, -300);   // Eastern Standard Time = UTC - 5 hours
+  
+  // DST start: Last Sunday March    2am => 3am
+  // DST end: 	Last Sunday October  3am => 2am
+  //TimeChangeRule CEST(Last, Sun, Mar, 2, Settings.TimeZone); // Summer Time
+  //TimeChangeRule CET(Last, Sun, Oct, 3, Settings.TimeZone);  // Standard Time
+  //start = CEST.toFlashStoredValue();
+  //end = CET.toFlashStoredValue();
+
+  start = usEDT.toFlashStoredValue();
+  end = usEST.toFlashStoredValue();
 }
 
 void ESPEasy_time_zone::applyTimeZone(uint32_t curTime) {
