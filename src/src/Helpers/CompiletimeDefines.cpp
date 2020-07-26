@@ -1,7 +1,18 @@
 #include "CompiletimeDefines.h"
 
+/* definition to expand macro then apply to pragma message */
+#define VALUE_TO_STRING(x) #x
+#define VALUE(x) VALUE_TO_STRING(x)
+#define VAR_NAME_VALUE(var) #var "="  VALUE(var)
+
+/* Some example here */
+#pragma message(VAR_NAME_VALUE(SET_BUILD_BINARY_FILENAME))
+#pragma message(VAR_NAME_VALUE(SET_BUILD_PLATFORM))
+#pragma message(VAR_NAME_VALUE(SET_BUILD_GIT_HEAD))
+
+
 #ifndef SET_BUILD_BINARY_FILENAME
-# define SET_BUILD_BINARY_FILENAME "firmware"
+  #define SET_BUILD_BINARY_FILENAME "firmware"
 #endif // ifndef SET_BUILD_BINARY_FILENAME
 
 #ifndef SET_BUILD_PLATFORM

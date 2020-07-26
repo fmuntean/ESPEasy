@@ -124,12 +124,12 @@ def applyCRC2(FileName):
 def crc_firmware(source, target, env):
     #print("Source: "+source)
     #print(env.Dump())
-    print(".pio/build/"+env['PIOENV']+"/firmware.bin")
+    print(".pio/build/"+env['PIOENV']+"/"+env['PROGNAME']+".bin")
     bin = env['PROJECT_DIR']+"/dist/"+env['PIOENV']+date.today().strftime("_%Y_%m_%d") +".bin"
-    copyfile(".pio/build/"+env['PIOENV']+"/firmware.bin", bin)
+    copyfile(".pio/build/"+env['PIOENV']+"/"+env['PROGNAME']+".bin", bin)
     #os.system("crc2.py " + bin)
     
-    print("MFD: TODO: fix the crc2 python script to support v3.8 !!!!!!")
+    
     applyCRC2(bin)
     os.remove(bin+'1')
     os.remove(bin+"2")
