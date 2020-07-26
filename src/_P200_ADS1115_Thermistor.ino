@@ -42,7 +42,7 @@ Schematic:
 
 
 
-boolean Plugin_200_init = false;
+//boolean Plugin_200_init = false;
 
 
 
@@ -62,7 +62,7 @@ boolean Plugin_200(byte function, struct EventStruct *event, String& string)
       Device[deviceCount].PullUpOption       = false;
       Device[deviceCount].InverseLogicOption = false;
       Device[deviceCount].FormulaOption      = true;
-      Device[deviceCount].ValueCount         = 2; //the forth one is used internally for moving average
+      Device[deviceCount].ValueCount         = 2; //the third and forth one are used internally for moving average
       Device[deviceCount].SendDataOption     = true;
       Device[deviceCount].TimerOption        = true;
       Device[deviceCount].GlobalSyncOption   = true;
@@ -84,7 +84,7 @@ boolean Plugin_200(byte function, struct EventStruct *event, String& string)
 
     case PLUGIN_WEBFORM_LOAD:
     {
-        #define ADS1115_I2C_OPTION 4
+      #define ADS1115_I2C_OPTION 4
       byte addr                            = PCONFIG(0);
       int optionValues[ADS1115_I2C_OPTION] = { 0x48, 0x49, 0x4A, 0x4B };
       addFormSelectorI2C(F("p200_i2c"), ADS1115_I2C_OPTION, optionValues, addr);
@@ -103,8 +103,8 @@ boolean Plugin_200(byte function, struct EventStruct *event, String& string)
       };
       addFormSelector(F("Gain"), F("p200_gain"), ADS1115_PGA_OPTION, pgaOptions, NULL, pga);
 
-        #define ADS1115_MUX_OPTION 8
-      byte mux                              = PCONFIG(2);
+      #define ADS1115_MUX_OPTION 8
+      byte mux = PCONFIG(2);
       String muxOptions[ADS1115_MUX_OPTION] = {
         F("AIN0 - AIN1 (Differential)"),
         F("AIN0 - AIN3 (Differential)"),
@@ -124,6 +124,7 @@ boolean Plugin_200(byte function, struct EventStruct *event, String& string)
       addFormTextBox(F("B"), F("p200_B"), String(PCONFIG_FLOAT(1), 10), 20);
       addFormTextBox(F("C"), F("p200_C"), String(PCONFIG_FLOAT(2), 10), 20);
 
+      addFormNumericBox(F("Moving Average Size"), F("p200_filter"), PCONFIG_LONG(1), 1, 32767);
       success = true;
       break;
     }
@@ -133,35 +134,51 @@ boolean Plugin_200(byte function, struct EventStruct *event, String& string)
       PCONFIG(0) = getFormItemInt(F("p200_i2c"));
 
       PCONFIG(1) = getFormItemInt(F("p200_gain"));
+      PCONFIG(3) = getFormItemInt(F("p200_gain"));
 
       PCONFIG(2) = getFormItemInt(F("p200_mode"));
 
       // PCONFIG(3) = isFormItemChecked(F("p200_cal"));
 
       PCONFIG_LONG(0) = getFormItemInt(F("p200_beta"));
+      PCONFIG_LONG(1) = getFormItemInt(F("p200_filter"));
 
       PCONFIG_FLOAT(0) = getFormItemFloat(F("p200_A"));
       PCONFIG_FLOAT(1) = getFormItemFloat(F("p200_B"));
       PCONFIG_FLOAT(2) = getFormItemFloat(F("p200_C"));
       
-      Plugin_200_init = false; // Force device setup next time
+      //Plugin_200_init = false; // Force device setup next time
       success         = true;
       break;
     }
 
     case PLUGIN_INIT:
     { 
-      Plugin_200_init = true;
+      uint8_t address = PCONFIG(0);
+      uint16_t pga   = PCONFIG(3);
+      uint16_t mux = PCONFIG(2);
+
+      //we do the first reading to prime the numbers so we do not get the NaN at the begining.
+      p200_prepareRead(address, pga,mux);
+      delay(8);
+      uint16_t filter_power = (uint16_t)PCONFIG_LONG(1);
+      UserVar[event->BaseVarIndex+2] = (float)p200_readRegister((address), (0x00)); // read conversion register
+      UserVar[event->BaseVarIndex+3] = UserVar[event->BaseVarIndex+2]* filter_power;
+      uint32_t Vref = 6600 << pga;        // calculate the 3v3 /2  adc value
+     UserVar[event->BaseVarIndex+2] = UserVar[event->BaseVarIndex+2] / (float)Vref; // compensate for the 2^pga gain
+      //Plugin_200_init = true;
       success         = true;
       break;
     }
 
     case PLUGIN_ONCE_A_SECOND:
     {
+        //we keep the raw average value in UserVar[event->BaseVarIndex+2] and the MA[i] in UserVar[event->BaseVarIndex+3]
+
       //code to be executed once a second. Tasks which do not require fast response can be added here
       uint8_t address = PCONFIG(0);
 
-      uint16_t pga   = PCONFIG(1);
+      uint16_t pga   = PCONFIG(3);
       int16_t  raw = ADC_MAX;
 
       while (raw >= ADC_MAX || raw <= ADC_MIN)
@@ -180,19 +197,22 @@ boolean Plugin_200(byte function, struct EventStruct *event, String& string)
         
       }
 
+      //#define  filter_power (64) 
+      uint16_t filter_power = (uint16_t)PCONFIG_LONG(1);
       float avg;
       int16_t lastPGA= PCONFIG(3);
       if (lastPGA == pga)
       {
-        //Calculate Moving average where 2^filter_power is the moving window of points
-        //MA*[i]= MA*[i-1] +X[i] - MA*[i-1]/N
-        uint8_t filter_power=(1<<2); //2^2
+        //Calculate Moving average where 2^filter_power is the moving window of points: https://www.daycounter.com/LabBook/Moving-Average.phtml
+        //MA[i]= MA[i-1] +X[i] - MA[i-1]/N
+        // where MA is the moving average*N.
+        //avg[i]= MA[i]/N
         avg = UserVar[event->BaseVarIndex+3] / (float)filter_power;
-        UserVar[event->BaseVarIndex+3] = UserVar[event->BaseVarIndex+3] + (float)raw - avg;
+        UserVar[event->BaseVarIndex+3] = UserVar[event->BaseVarIndex+3] + (float)raw -  avg;
       } else
       {
         PCONFIG(3) = pga;
-        uint8_t filter_power=(1<<2); //2^2
+        //uint8_t filter_power=(1<<4); //2^4
         avg = (float)raw;
         UserVar[event->BaseVarIndex+3] = (float)raw * filter_power;
         
@@ -228,7 +248,7 @@ boolean Plugin_200(byte function, struct EventStruct *event, String& string)
 
       //_log+=F(" offset:"); _log+=offset;
       //_log += F(" Vref:"); _log += Vref;
-      float dv = UserVar[event->BaseVarIndex+2] ;
+      float dv = UserVar[event->BaseVarIndex+2] ; //contains the raw moving average value
       _log += F(" dv:"); _log += dv;
 
 
@@ -248,7 +268,7 @@ boolean Plugin_200(byte function, struct EventStruct *event, String& string)
       #define T0 298.15
       double temperature = (beta * T0)/ (beta + T0*ln)- 273.15;
 
-      UserVar[event->BaseVarIndex] = temperature;
+      UserVar[event->BaseVarIndex] = temperature; //temperature based on beta value
 
       // Rt =  R*(1 + 2*voltage / vdd )/(1- 2*voltage / vdd)
       // ln = log(Rt/R) = log ( (1+2*voltage/vdd)/(1-2*voltage/vdd) )
@@ -262,10 +282,11 @@ boolean Plugin_200(byte function, struct EventStruct *event, String& string)
 
       double lnR = ln+9.21034037198; //adding the ln(R0)
 
+     //https://thecavepearlproject.org/2017/04/26/calibrating-oversampled-thermistors-with-an-arduino/
      //parameters obtained from: https://www.google.com/url?sa=t&rct=j&q=&esrc=s&source=web&cd=1&cad=rja&uact=8&ved=2ahUKEwj70M625fnlAhUxqlkKHbTnCEwQFjAAegQIARAC&url=https%3A%2F%2Fedwardmallon.files.wordpress.com%2F2017%2F04%2Fntc-steinhart_and_hart_calculator.xls&usg=AOvVaw3qmQIDzgNcWww0a9uqrbwE
-      double Tc1 = 1/ (PCONFIG_FLOAT(0)+ lnR*(PCONFIG_FLOAT(1) + PCONFIG_FLOAT(2)*lnR*lnR) ) - 273.15;
+     double Tc1 = 1/ (PCONFIG_FLOAT(0)+ lnR*(PCONFIG_FLOAT(1) + PCONFIG_FLOAT(2)*lnR*lnR) ) - 273.15;
 
-      UserVar[event->BaseVarIndex + 1] = Tc1;
+      UserVar[event->BaseVarIndex + 1] = Tc1; //temperature based on steinhart formula
 
 
 
