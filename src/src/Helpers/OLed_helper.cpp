@@ -1,5 +1,8 @@
 #include "../Helpers/OLed_helper.h"
 
+
+#if defined(USES_P023) || defined(USES_P036) || defined(USES_P109)
+
 /**************************************************************************
  * Select controller type, SSD1306 or SH1106
  *************************************************************************/
@@ -113,3 +116,6 @@ bool OLedI2CAddressCheck(uint8_t                    function,
   }
   return success;
 }
+
+
+#endif

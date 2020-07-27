@@ -417,7 +417,9 @@ To create/register a plugin, you have to :
 //    #define USES_C013   // ESPEasy P2P network
 
 //    #define NOTIFIER_SET_STABLE
+    #ifndef NOTIFIER_SET_NONE
     #define NOTIFIER_SET_NONE
+    #endif
 
     #define PLUGIN_SET_NONE
 
@@ -549,6 +551,8 @@ To create/register a plugin, you have to :
         #undef WEBSERVER_RULES_DEBUG
     #endif
 #endif
+
+
 
 
 /******************************************************************************\
@@ -1709,7 +1713,7 @@ To create/register a plugin, you have to :
 	#define USES_P102	// Nodo
 	#define USES_P103	// Event
 	#define USES_P104	// SRF02
-	#define USES_P105	// RGBW
+	#define USES_P205	// RGBW
 	#define USES_P106	// IRTX
 	#define USES_P107	// Email_Demo
 	#define USES_P108	// WOL

@@ -85,7 +85,7 @@ def applyCRC2(FileName):
     if (len(endArray) + len (startArray)) != 32 :
         print("ERROR: please make sure you add / remove padding if you change the segments.")
 
-    BinaryFileName = "";
+    BinaryFileName = ""
     #if  fileContent.find( FILENAMEDUMMY.encode(encoding='utf-8',errors='strict')) < 0:
     if  fileContent.find( FILENAMEDUMMY) < 0:
         print("ERROR: FILENAMEDUMMY dummy not found in binary")

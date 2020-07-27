@@ -15,8 +15,8 @@
 #ifdef USE_CUSTOM_H
 
 // make the compiler show a warning to confirm that this file is inlcuded
-  # warning "**** Using Settings from Custom.h File ***"
-#endif // ifdef USE_CUSTOM_H
+  #pragma message   "**** Using Settings from Custom.h File ***"
+#endif
 
 
 // Needed due to preprocessor issues.
