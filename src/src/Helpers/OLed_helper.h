@@ -1,8 +1,10 @@
 #ifndef HELPERS_OLED_HELPER_H
 #define HELPERS_OLED_HELPER_H
 #include "../../_Plugin_Helper.h"
-#include "SSD1306.h"
-#include "SH1106Wire.h"
+
+#if defined(USES_P023) || defined(USES_P036) || defined(USES_P109)
+    #include "SSD1306.h"
+    #include "SH1106Wire.h"
 
 /**
  * Helper with OLed related functions
@@ -36,5 +38,7 @@ bool OLedI2CAddressCheck(uint8_t                    function,
                          int                        checkI2cAddress,
                          const __FlashStringHelper *id,
                          int8_t                     deviceAddress);
+
+#endif
 
 #endif // ifndef HELPERS_OLED_HELPER_H
