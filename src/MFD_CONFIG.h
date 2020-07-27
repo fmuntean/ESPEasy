@@ -7,7 +7,7 @@
 
 
 #define DEFAULT_LATITUDE    42.78F
-#define DEFAULT_LONGITUDE   -71.07
+#define DEFAULT_LONGITUDE   -71.07F
 
 // MQTT_KEEPALIVE : keepAlive interval in Seconds
 // Keepalive timeout for default MQTT Broker is 10s
