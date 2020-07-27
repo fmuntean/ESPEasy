@@ -25,7 +25,8 @@
 
 
 #ifdef ESP32
- 
+  //#include <MD5Builder.h>
+
   //MFD: adding tone support here while waiting for the Arduino Espressif implementation to catch up
   //As recomandation is not to use external libraries the following code was taken from: https://github.com/lbernstone/Tone Thanks
   #define TONE_CHANNEL 15
@@ -42,8 +43,10 @@
           log_e("Tone channel %d is already in use", ledcRead(channel));
           return;
       }
+      ledcSetup(channel,frequency,8);//in the new esp32@1.12.4 this is required for the board to make noise 
       ledcAttachPin(pin, channel);
-      ledcWriteTone(channel, frequency);
+      //ledcWriteTone(channel, frequency);
+      ledcWrite(channel, 0x1F);
       if (duration) {
           delay(duration);
           noToneESP32(pin, channel);
@@ -1093,22 +1096,24 @@ void ResetFactory()
     // Place in a scope to have its memory freed ASAP
     MakeControllerSettings(ControllerSettings);
     if (AllocatedControllerSettings()) {
-      safe_strncpy(ControllerSettings.Subscribe, F(DEFAULT_SUB), sizeof(ControllerSettings.Subscribe));
-      safe_strncpy(ControllerSettings.Publish, F(DEFAULT_PUB), sizeof(ControllerSettings.Publish));
-      safe_strncpy(ControllerSettings.MQTTLwtTopic, F(DEFAULT_MQTT_LWT_TOPIC), sizeof(ControllerSettings.MQTTLwtTopic));
-      safe_strncpy(ControllerSettings.LWTMessageConnect, F(DEFAULT_MQTT_LWT_CONNECT_MESSAGE), sizeof(ControllerSettings.LWTMessageConnect));
-      safe_strncpy(ControllerSettings.LWTMessageDisconnect, F(DEFAULT_MQTT_LWT_DISCONNECT_MESSAGE), sizeof(ControllerSettings.LWTMessageDisconnect));
-      str2ip((char*)DEFAULT_SERVER, ControllerSettings.IP);
-      ControllerSettings.setHostname(F(DEFAULT_SERVER_HOST));
-      ControllerSettings.UseDNS = DEFAULT_SERVER_USEDNS;
-      ControllerSettings.useExtendedCredentials(DEFAULT_USE_EXTD_CONTROLLER_CREDENTIALS);
-      ControllerSettings.Port = DEFAULT_PORT;
-      setControllerUser(0, ControllerSettings, F(DEFAULT_CONTROLLER_USER));
-      setControllerPass(0, ControllerSettings, F(DEFAULT_CONTROLLER_PASS));
+    safe_strncpy(ControllerSettings.Subscribe, F(DEFAULT_SUB), sizeof(ControllerSettings.Subscribe));
+    safe_strncpy(ControllerSettings.Publish, F(DEFAULT_PUB), sizeof(ControllerSettings.Publish));
+    safe_strncpy(ControllerSettings.MQTTLwtTopic, F(DEFAULT_MQTT_LWT_TOPIC), sizeof(ControllerSettings.MQTTLwtTopic));
+    safe_strncpy(ControllerSettings.LWTMessageConnect, F(DEFAULT_MQTT_LWT_CONNECT_MESSAGE), sizeof(ControllerSettings.LWTMessageConnect));
+    safe_strncpy(ControllerSettings.LWTMessageDisconnect, F(DEFAULT_MQTT_LWT_DISCONNECT_MESSAGE), sizeof(ControllerSettings.LWTMessageDisconnect));
+    str2ip((char*)DEFAULT_SERVER, ControllerSettings.IP);
+    ControllerSettings.setHostname(F(DEFAULT_SERVER_HOST));
+    ControllerSettings.UseDNS = DEFAULT_SERVER_USEDNS;
+    ControllerSettings.useExtendedCredentials(DEFAULT_USE_EXTD_CONTROLLER_CREDENTIALS);
+    ControllerSettings.Port = DEFAULT_PORT;
+    setControllerUser(0, ControllerSettings, F(DEFAULT_CONTROLLER_USER));
+    setControllerPass(0, ControllerSettings, F(DEFAULT_CONTROLLER_PASS));
 
-    ControllerSettings.DeleteOldest = DEFAULT_DELETE_OLDEST; //MFD: i want to delete oldest MQTT messages
-      SaveControllerSettings(0, ControllerSettings);
-    }
+    #ifdef DEFAULT_DELETE_OLDEST
+      ControllerSettings.DeleteOldest = DEFAULT_DELETE_OLDEST; //MFD: i want to delete oldest MQTT messages
+    #endif
+    SaveControllerSettings(0, ControllerSettings);
+  }
   }
 #endif
 
