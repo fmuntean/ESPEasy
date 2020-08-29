@@ -18,7 +18,7 @@ def get_git_description():
         from pygit2 import Repository
         try:
             repo = Repository('.')
-            return "'{0}_{1}'".format(repo.head.shorthand, repo.revparse_single('HEAD').short_id)
+            return '{0}_{1}'.format(repo.head.shorthand, repo.revparse_single('HEAD').short_id)
         except:
             return 'No_.git_dir'
     except ImportError:
@@ -40,7 +40,7 @@ def deduct_flags_from_pioenv():
 # somewhere along the line, another level is removed.
 def wrap_quotes(str_value):
     if platform.system() == 'Windows':
-        return "\"\"\"{}\"\"\"".format(str_value)
+        return 'VALUE_TO_STRING({})'.format(str_value)
     else:
         return '\'\"\"\"{}\"\"\"\''.format(str_value)
 
