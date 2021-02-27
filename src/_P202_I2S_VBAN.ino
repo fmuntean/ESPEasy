@@ -1,4 +1,4 @@
-#ifdef USES_P201
+#ifdef USES_P202
 
   #ifdef ESP32 //only available for ESP32 due to the cpu power required and the limited ADC capabilities for ESP8266
 
@@ -7,12 +7,12 @@
     #include <driver/adc.h>
     #include <WiFiUdp.h>
 
-    #define PLUGIN_201
-    #define PLUGIN_ID_201        201
-    #define PLUGIN_NAME_201       "VBAN Audio Transmitter [DEVELOPMENT]"
-    #define PLUGIN_VALUENAME1_201 "Level"
+    #define PLUGIN_202
+    #define PLUGIN_ID_202        202
+    #define PLUGIN_NAME_202       "I2S VBAN Audio Transmitter [DEVELOPMENT]"
+    #define PLUGIN_VALUENAME1_202 "Level"
 
-    boolean Plugin_201_init = false;
+    boolean Plugin_202_init = false;
 
     typedef struct tagVBAN_HEADER     
     {         
@@ -69,16 +69,8 @@
 
     #define VBAN_PORT 6980 
 
-    /* Attenuation
-    When VDD_A is 3.3V:
-      0dB attenuation (ADC_ATTEN_0db) gives full-scale voltage   0 to 1.1V
-    2.5dB attenuation (ADC_ATTEN_2_5db) gives full-scale voltage 0 to 1.5V
-      6dB attenuation (ADC_ATTEN_6db) gives full-scale voltage   0 to 2.2V
-     11dB attenuation (ADC_ATTEN_11db) gives full-scale voltage  0 to 3.9V
-    */
-    #define ADC_ATTENUATION ADC_ATTEN_6db
     
-    adc1_channel_t ADC_CHANNEL = ADC1_CHANNEL_0;
+
 
 
     /*-----Internal variables and buffers ----- */
@@ -87,37 +79,65 @@
 
 
     uint32_t frameCounter=0; //the incrementing frame counter for vban packages
-    volatile int32_t transmitNow = -1; // -1=no sending; otherwise we record here the starting point a multiple of VBAN_PACKET_SIZE
     uint16_t sample_idx=VBAN_HEADER_SIZE; //index for audio aquisition; set to beginning of the first data portion
 
 
     uint16_t audio_power=0;
 
 
-    TaskHandle_t adcHandlerTask; //task to send UDP packages 
+    TaskHandle_t audioHandlerTask; //task to send UDP packages 
     hw_timer_t * timer = NULL; //timer used to aquire audio data
 
 
-    WiFiUDP p201UDP; //the UDP object
+    WiFiUDP p202UDP; //the UDP object
     IPAddress UDP_IP;// = IPAddress(192,168,100,62);
     uint16_t UDP_PORT = VBAN_PORT;
-    int16_t AUDIO_OFFSET=0;
+
 
     #define SAMPLES 256 //number of samples per package
     #define CHANNELS 1 //number of channels
-    #define SAMPLE_SIZE_BYTES 2
+    #define SAMPLE_SIZE_BYTES 3
 
     #define AUDIO_SIZE (SAMPLES * CHANNELS * SAMPLE_SIZE_BYTES)
     #define VBAN_PACKET_SIZE  (VBAN_HEADER_SIZE + AUDIO_SIZE)
-    #define BLOCKS 2 
-    #define P201_BUFFER_SIZE (BLOCKS * VBAN_PACKET_SIZE)
+    #define BLOCKS 1 
+    #define p202_BUFFER_SIZE (BLOCKS * VBAN_PACKET_SIZE)
 
-    void P201_fillHeader(struct tagVBAN_HEADER * header){
+
+
+#include <driver/i2s.h>
+
+const i2s_port_t I2S_PORT = I2S_NUM_0;
+
+// The I2S config as per the example
+  const i2s_config_t i2s_config = {
+      .mode = i2s_mode_t(I2S_MODE_MASTER | I2S_MODE_RX), // Receive, not transfer
+      .sample_rate = 16000,                         // 16KHz
+      .bits_per_sample = I2S_BITS_PER_SAMPLE_32BIT, //requires 32 pulses where only first 24bits are used (MSB --- LSB) could only get it to work with 32bits
+      .channel_format = I2S_CHANNEL_FMT_ONLY_LEFT, 
+      .communication_format = i2s_comm_format_t(I2S_COMM_FORMAT_I2S), //data starts at second BCK
+      .intr_alloc_flags = ESP_INTR_FLAG_LEVEL1,     // Interrupt level 1
+      .dma_buf_count = 4,                           // number of buffers
+      .dma_buf_len = 1024                     // samples per buffer
+    
+  };
+
+  // The pin config as per the setup
+  const i2s_pin_config_t pin_config = {
+      .bck_io_num = 32,   // SCK
+      .ws_io_num = 33,    // WS
+      .data_out_num = -1, // not used (only for speakers)
+      .data_in_num = 36   // SO
+  };
+
+
+
+    void P202_fillHeader(struct tagVBAN_HEADER * header){
       strcpy_P(header->vban, PSTR("VBAN")); 
       header->format_SR = VBAN_PROTOCOL_AUDIO | 8; // 9; //32KHz or use  8; //16Khz or use 7; //8Khz
       header->format_nbs = SAMPLES-1;  
       header->format_nbc = CHANNELS-1; //mono   
-      header->format_bit = VBAN_CODEC_PCM | VBAN_DATATYPE_INT16;    /* mask = 0x07 (nb Byte integer from 1 to 4) */         
+      header->format_bit = VBAN_CODEC_PCM | VBAN_DATATYPE_INT24;    /* mask = 0x07 (nb Byte integer from 1 to 4) */         
       strcpy_P(header->streamName , Settings.Name );/* stream name max 16 chars*/         
       header->nuFrame = 0;       /* growing frame number. */     
     }
@@ -127,22 +147,22 @@
     #define ismulticast(addr1) (((uint32_t)(addr1) & PP_HTONL(0xf0000000UL)) == PP_HTONL(0xe0000000UL))
 
 
-    int P201_sendUDP(IPAddress toIP, uint16_t port, uint8_t * package, size_t length){
+    int P202_sendUDP(IPAddress toIP, uint16_t port, uint8_t * package, size_t length){
       if (WiFiConnected()) 
       {
         if (ismulticast(toIP))
         {
-          if (p201UDP.beginMulticastPacket()) //(toIP, port, WiFi.localIP(),2))
+          if (p202UDP.beginMulticastPacket()) //(toIP, port, WiFi.localIP(),2))
           {
-            p201UDP.write(package,length);
-            p201UDP.endPacket();
+            p202UDP.write(package,length);
+            p202UDP.endPacket();
           }
         }
         else
-          if (p201UDP.beginPacket(toIP, port))
+          if (p202UDP.beginPacket(toIP, port))
           {
-            p201UDP.write(package,length);
-            p201UDP.endPacket();
+            p202UDP.write(package,length);
+            p202UDP.endPacket();
           }
         return 0; 
       }
@@ -150,120 +170,74 @@
     }
 
 
-
-
-    void p201_adcHandler(void *param) {
+const int INT24_MAX = 8388607;
+    uint32_t  buf[SAMPLES];
+    void p202_audioHandler(void *param) {
       while (true) {
-        // Sleep until the ISR gives us something to do, or for 1 second
-        ulTaskNotifyTake(pdFALSE, pdMS_TO_TICKS(1000));  
         if (WiFiConnected()) 
-        if (transmitNow>=0){
+        {
             //filling the frame counter on the header before sending.
-            uint8_t *header = (buffer+transmitNow);
+            uint8_t *header = (buffer);
             
             *(header+24) = (uint8_t)frameCounter; //LSB
             *(header+25) = (uint8_t)(frameCounter>>8);
             *(header+26) = (uint8_t)(frameCounter>>16);
             *(header+27) = (uint8_t)(frameCounter>>24); //MSB
+
+            int num_bytes_read = i2s_read_bytes(I2S_PORT, &buf, (SAMPLES-1)*4,portMAX_DELAY);  
             
-            P201_sendUDP(UDP_IP, UDP_PORT, (buffer+transmitNow),VBAN_PACKET_SIZE);
+            uint8_t samplesRead = num_bytes_read / 4 ;
+            uint8_t *ptr = (buffer+VBAN_HEADER_SIZE);
+            for(int i=0;i<samplesRead;i++)
+            {
+                //uint8_t lsb = buf[i*4+0];
+                //uint8_t mid = buf[i*4+1];
+                //uint8_t msb = buf[i*4+2];
+                //*(ptr++)=lsb;
+                //*(ptr++)=mid;
+                uint32_t b = buf[i];
+                
+                *(ptr++)=(uint8_t)(b>>8);
+                *(ptr++)=(uint8_t)(b>>16);
+                *(ptr++)=(uint8_t)(b>>24);
+                
+                //uint16_t d = map(b>>8,0,INT24_MAX,0,65535);  //amplify
+                //*(ptr++)= (uint8_t)(d); //lsb
+                //*(ptr++)= (uint8_t)(d>>8); //msb
+                
+                //*(ptr++)=(uint8_t)(b);
+
+            }
+
+            P202_sendUDP(UDP_IP, UDP_PORT, (buffer),VBAN_PACKET_SIZE);
             frameCounter++;
-            transmitNow = -1;
-          // addLog(LOG_LEVEL_INFO,"VBAN: sent");
-          
+            
+            yield();
+          /*
           //processing the buffer further
-          uint16_t * audio = (uint16_t *)(buffer+transmitNow);
-          int16_t max=0,min=0;
-          
-          for(int i=0;i<SAMPLES;i++)
-          {
-            int16_t val = audio[i];
-            if (val<min) min=val;
-            if (val>max) max=val;
-          } 
-          audio_power = max-min;
+          int samples_read = num_bytes_read / 8;
+          if (samples_read > 0) {
+            float mean = 0;
+            for (int i = 0; i < samples_read; ++i) {
+              mean += (*(buffer+VBAN_HEADER_SIZE+i) >> 14);
+            }
+            mean /= samples_read;
+
+            float maxsample = -1e8, minsample = 1e8;
+            for (int i = 0; i < samples_read; ++i) {
+              minsample = min(minsample, samples[i] - mean);
+              maxsample = max(maxsample, samples[i] - mean);
+            }
+            Serial.println(maxsample - minsample);
           }
-      
+          */
+      }
       }
     }
 
-
- //from: https://www.toptal.com/embedded/esp32-audio-sampling
-    #include <soc/sens_reg.h>
-    #include <soc/sens_struct.h>
-    uint16_t IRAM_ATTR p201_isr_adc1_read(int channel) {
-        uint16_t adc_value;
-        SENS.sar_meas_start1.sar1_en_pad = (1 << channel); // only one channel is selected
-        while (SENS.sar_slave_addr1.meas_status != 0);
-        SENS.sar_meas_start1.meas1_start_sar = 0;
-        SENS.sar_meas_start1.meas1_start_sar = 1;
-        while (SENS.sar_meas_start1.meas1_done_sar == 0);
-        adc_value = SENS.sar_meas_start1.meas1_data_sar;
-        return adc_value;
-    }
-
-    uint8_t IRAM_ATTR isr_map(long x, long in_min, long in_max, long out_min, long out_max) {
-        long divisor = (in_max - in_min);
-        if(divisor == 0){
-            return -1; //AVR returns -1, SAM returns 0
-        }
-        return (x - in_min) * (out_max - out_min) / divisor + out_min;
-    }
-
-    portMUX_TYPE timerMux = portMUX_INITIALIZER_UNLOCKED; //mutex for the timer
-    volatile int32_t last_val=AUDIO_OFFSET;
-    void IRAM_ATTR p201_onTimer() {
-      portENTER_CRITICAL_ISR(&timerMux); // says that we want to run critical code and don't want to be interrupted
-      
-      int16_t adcVal = p201_isr_adc1_read(ADC_CHANNEL); //int adcVal = adc1_get_raw(ADC1_CHANNEL_7); // reads the ADC
-      //int16_t adcNoise = isr_adc1_read(ADC1_CHANNEL_1); //int adcVal = adc1_get_raw(ADC1_CHANNEL_7); // reads the ADC
-      
-      //average the current and last value for noise filtering
-      adcVal = (last_val + adcVal) >> 1; //simple average
-      // adcVal = (last_val + adcVal) >> 2; last_val=3*adcVal; heavy filtering of the highs
-      last_val = adcVal;
-      //uint8_t value = isr_map(adcVal, 0 , 4096, 0, 255);  // converts the value to 0..255 (8bit)
-      //uint8_t value = isr_map(adcVal-1024, 0 , 4096-1024, 0, 255);  // converts the value to 0..255 (8bit)
-      //*(buffer+sample_idx) = value; // stores the value
-      adcVal-=AUDIO_OFFSET;
-      
-      if (adcVal<-32 || adcVal>32)
-       adcVal=adcVal*2;
-
-
-      *(buffer+sample_idx) = (uint8_t) (adcVal); //LSB
-      sample_idx++;
-      *(buffer+sample_idx) = (uint8_t) (adcVal>>8); //MSB
-      sample_idx++;
-
-
-      if (sample_idx % VBAN_PACKET_SIZE == 0) { // when the buffer is full
-        transmitNow = sample_idx - VBAN_PACKET_SIZE; //we can transmit now
-
-        sample_idx = (sample_idx + VBAN_HEADER_SIZE) % P201_BUFFER_SIZE; //move to next data block
-        
-        // Notify adcTask that the buffer is full.
-        BaseType_t xHigherPriorityTaskWoken = pdFALSE;
-        vTaskNotifyGiveFromISR(adcHandlerTask, &xHigherPriorityTaskWoken);
-        if (xHigherPriorityTaskWoken) {  portYIELD_FROM_ISR();}
-
-        //memcpy(transmitBuffer, audioBuffer, AUDIO_BUFFER_MAX); // copy buffer into a second buffer
-      }
-
-
-     
-      
-      portEXIT_CRITICAL_ISR(&timerMux); // says that we have run our critical code
-    }
-
-
-    
-    
-
-   
 
     //A plugin has to implement the following function
-    boolean Plugin_201(byte function, struct EventStruct *event, String& string)
+    boolean Plugin_202(byte function, struct EventStruct *event, String& string)
     {
       //function: reason the plugin was called
       //event: ??add description here??
@@ -276,8 +250,8 @@
         case PLUGIN_DEVICE_ADD:
         {
             //This case defines the device characteristics, edit appropriately
-            Device[++deviceCount].Number = PLUGIN_ID_201;
-            Device[deviceCount].Type = DEVICE_TYPE_ANALOG;  //ANALOG-IN , AR (optional), GAIN (optiona)
+            Device[++deviceCount].Number = PLUGIN_ID_202;
+            Device[deviceCount].Type = DEVICE_TYPE_TRIPLE;  //2 data pins for I2S
             Device[deviceCount].VType = SENSOR_TYPE_SINGLE; //type of value the plugin will return, used only for Domoticz
             Device[deviceCount].Ports = 0;
             Device[deviceCount].PullUpOption = false;
@@ -295,7 +269,7 @@
         case PLUGIN_GET_DEVICENAME:
         {
           //return the device name
-          string = F(PLUGIN_NAME_201);
+          string = F(PLUGIN_NAME_202);
           break;
         }
 
@@ -303,7 +277,7 @@
         {
           //called when the user opens the module configuration page
           //it allows to add a new row for each output variable of the plugin
-          strcpy_P(ExtraTaskSettings.TaskDeviceValueNames[0], PSTR(PLUGIN_VALUENAME1_201));
+          strcpy_P(ExtraTaskSettings.TaskDeviceValueNames[0], PSTR(PLUGIN_VALUENAME1_202));
           break;
         }
 
@@ -322,45 +296,27 @@
           //The user's selection will be stored in
           //PCONFIG(x) (custom configuration)
 
-          addHtml(F("<TR><TD>Analog Pin:<TD>"));
-          String adc_choices[8] = { F("GPIO-36"), F("GPIO-37"), F("GPIO-38"), F("GPIO-39"), F("GPIO-32"), F("GPIO-33"), F("GPIO-34"), F("GPIO-35") };
-          int adc_pins[8] = {36,37,38,39,32,33,34,35};
-          addFormSelector(F("Audio Pin"), F("P201_adc"), 8, adc_choices, adc_pins, CONFIG_PIN1);
-
           // Make sure not to append data to the string variable in this PLUGIN_WEBFORM_LOAD call.
           // This has changed, so now use the appropriate functions to write directly to the Streaming
           // web_server. This takes much less memory and is faster.
           // There will be an error in the web interface if something is added to the "string" variable.
 
           //Use any of the following (defined at web_server.ino):
-          addFormPinSelect(F("GAIN Pin"), F("taskdevicepin2"), Settings.TaskDevicePin2[event->TaskIndex]);
-          addFormPinSelect(F("A/R  Pin"), F("taskdevicepin3"), Settings.TaskDevicePin3[event->TaskIndex]);
-          //addFormNote(F("PIN1 = Audio IN ; PIN2 = AGC ; PIN3 = AR"));
           //To add some html, which cannot be done in the existing functions, add it in the following way:
           //addHtml(F("<TR><TD>Analog Pin:<TD>"));
 
 
           //For strings, always use the F() macro, which stores the string in flash, not in memory.
 
-          String gain_choices[5] = { F("Auto"), F("40 Db"), F("50 Db"), F("60 Db")};
-          addFormSelector(F("GAIN"), F("P201_gain"), 4, gain_choices, NULL, PCONFIG(1));
-
-          String ar_choices[5] = { F("Auto"), F("1:500"), F("1:2000"), F("1:4000")};
-          addFormSelector(F("ATTACK/RELEASE Ratio"), F("P201_AR"), 4, ar_choices, NULL, PCONFIG(2));
-
+    
           //number selection (min-value - max-value)
-          addFormNumericBox(F("VBAN Port"), F("P201_VBAN_PORT"), PCONFIG(0), 1, 65535);
+          addFormNumericBox(F("VBAN Port"), F("p202_VBAN_PORT"), PCONFIG(0), 1, 65535);
           
           IPAddress addr(PCONFIG_LONG(0));
           byte ip[4];
           ip[0] = addr[0]; ip[1]=addr[1]; ip[2]=addr[2]; ip[3]=addr[3];
-          addFormIPBox(F("Target IP"), F("P201_IP"),ip );
+          addFormIPBox(F("Target IP"), F("p202_IP"),ip );
           //after the form has been loaded, set success and break
-
-          //addFormCheckBox(F("Multicast"),F("P201_Multicast"), PCONFIG(4));
-
-          addFormNumericBox(F("Zero Offset"), F("P201_offset"), PCONFIG(3), 0, 65535);
-
           
           success = true;
           break;
@@ -371,16 +327,11 @@
           //this case defines the code to be executed when the form is submitted
           //the plugin settings should be saved to PCONFIG(x)
           //ping configuration should be read from CONFIG_PIN1 and stored
-          CONFIG_PIN1 = getFormItemInt(F("P201_adc"));
           
-          PCONFIG(0) = getFormItemInt(F("P201_VBAN_PORT"));
-          PCONFIG(1) = getFormItemInt(F("P201_gain"));
-          PCONFIG(2) = getFormItemInt(F("P201_AR"));
-          PCONFIG(3) = getFormItemInt(F("P201_offset"));
-          //PCONFIG(4) = isFormItemChecked(F("P201_Multicast"));
-          
+          PCONFIG(0) = getFormItemInt(F("p202_VBAN_PORT"));
+        
           IPAddress ip;
-          ip.fromString(web_server.arg(F("P201_IP")).c_str());
+          ip.fromString(web_server.arg(F("p202_IP")).c_str());
           PCONFIG_LONG(0) = ip;
 
           //after the form has been saved successfuly, set success and break
@@ -393,18 +344,15 @@
           //this case defines code to be executed when the plugin is initialised
           UDP_IP = IPAddress(PCONFIG_LONG(0));
           UDP_PORT = PCONFIG(0);
-          AUDIO_OFFSET = PCONFIG(3);
-          
-          
           
           if (ismulticast(UDP_IP))
           {
             addLog(LOG_LEVEL_INFO, F("IP address is Multicast"));
-            p201UDP.beginMulticast(UDP_IP,UDP_PORT);
+            p202UDP.beginMulticast(UDP_IP,UDP_PORT);
           }
           
 
-          buffer = (uint8_t*)calloc(P201_BUFFER_SIZE,sizeof(uint8_t));
+          buffer = (uint8_t*)calloc(p202_BUFFER_SIZE,sizeof(uint8_t));
           if (buffer == NULL) 
           {
             addLog(LOG_LEVEL_ERROR,F("VBAN: Buffer Allocation error"));
@@ -413,13 +361,11 @@
           {
             int idx = 0;
             while (idx<BLOCKS){
-              P201_fillHeader((T_VBAN_HEADER *)(buffer+idx*VBAN_PACKET_SIZE));
+              P202_fillHeader((T_VBAN_HEADER *)(buffer+idx*VBAN_PACKET_SIZE));
               idx++;
             }
-            //P201_fillHeader((T_VBAN_HEADER *)(buffer+VBAN_PACKET_SIZE));
           }
 
-          
           String log = F("VBAN: sending to: ");
           log+=UDP_IP.toString();
           log+=F(":");
@@ -429,66 +375,21 @@
           addLog(LOG_LEVEL_INFO,log);
           
 
-          /*
-          Trilevel Amplifier Gain Control.
-          GAIN = VDD, gain set to 40dB. 
-          GAIN = GND, gain set to 50dB. 
-          GAIN = Unconnected, uncompressed gain set to 60dB. 
-          */
-          if (CONFIG_PIN2>0)
-          switch(PCONFIG(1)){
-              case 1: //40db
-                pinMode(CONFIG_PIN2,OUTPUT);
-                digitalWrite(CONFIG_PIN2,HIGH);
-                break;
-              case 2: //50db
-                pinMode(CONFIG_PIN2,OUTPUT);
-                digitalWrite(CONFIG_PIN2,LOW);
-                break;
-              case 3: //60db
-              default:
-                pinMode(CONFIG_PIN2, INPUT); //high Z
-            }
-
-          /*
-          Trilevel Attack and Release Ratio Select. Controls the ratio of attack time to release time for the AGC circuit.
-          A/R = GND: Attack/Release Ratio is 1:500 
-          A/R = VDD: Attack/Release Ratio is 1:2000 
-          A/R = Unconnected: Attack/Release Ratio is 1:4000
-          */
-          if (CONFIG_PIN3>0)
-            switch(PCONFIG(2)){
-              case 1: //AR=1:500
-                pinMode(CONFIG_PIN3,OUTPUT);
-                digitalWrite(CONFIG_PIN3,LOW);
-                break;
-              case 2: //AR=1:2000
-                pinMode(CONFIG_PIN3,OUTPUT);
-                digitalWrite(CONFIG_PIN3,HIGH);
-                break;
-              case 3: //AR=1:4000
-              default:
-                pinMode(CONFIG_PIN3, INPUT); //high Z
-            }
-          
-          
-          ADC_CHANNEL = (adc1_channel_t)digitalPinToAnalogChannel(CONFIG_PIN1);
-          
-          {
-          adc1_config_width(ADC_WIDTH_12Bit); // configure the analogue to digital converter
-          adc1_config_channel_atten(ADC_CHANNEL, ADC_ATTENUATION); //ADC_ATTEN_11db); // connects the ADC 1 with channel 7 (GPIO 35)
-          adc1_get_raw(ADC_CHANNEL); //we need this to initialize the ADC correctly
+           // Configuring the I2S driver and pins.
+          // This function must be called before any I2S driver read/write operations.
+          int8_t err = i2s_driver_install(I2S_PORT, &i2s_config, 0, NULL);
+          if (err != ESP_OK) {
+            Serial.printf("I2S: Failed installing driver: %d\n", err);
           }
+          err = i2s_set_pin(I2S_PORT, &pin_config);
+          if (err != ESP_OK) {
+            Serial.printf("I2S: Failed setting pins: %d\n", err);
+          }
+          //Serial.println("I2S driver installed.");
+          
 
-          xTaskCreate(p201_adcHandler, "Handler Task", 5000, NULL, 1, &adcHandlerTask);
-
-          //timer = timerBegin(0, 80, true); // 80 Prescaler => 1 microseconds for 8Khz
-          timer = timerBegin(0, 40, true); // 40 Prescaler => 0.5 microseconds  for 16Khz
-          //timer = timerBegin(0, 20, true); // 20 Prescaler => 0.25 microseconds  for 32Khz
-          timerAttachInterrupt(timer, &p201_onTimer, true); // binds the handling function to our timer 
-          timerAlarmWrite(timer, 125, true); //x*8Khz sample rate
-          timerAlarmEnable(timer);
-
+          //TODO: only start the task if enabled.
+          xTaskCreate(p202_audioHandler, "Handler Task", 5000, NULL, 1, &audioHandlerTask);
 
           //after the plugin has been initialised successfuly, set success and break
           log = F("VBAN: Initialized");
@@ -524,15 +425,15 @@
           break;
         }
 
-      case PLUGIN_EXIT:
-      {
-        //perform cleanup tasks here. For example, free memory
-        free(buffer);
-        buffer= NULL;
-        break;
+        case PLUGIN_EXIT:
+        {
+          //perform cleanup tasks here. For example, free memory
+          free(buffer);
+          buffer= NULL;
+          break;
 
-      }
-        
+        }
+          
         case PLUGIN_ONCE_A_SECOND:
         {
           //code to be executed once a second. Tasks which do not require fast response can be added here
@@ -554,7 +455,6 @@
         
         }
 
-      
         case PLUGIN_FIFTY_PER_SECOND:
         {
 
@@ -562,6 +462,7 @@
           break;
         }
         */
+
       }   // switch
       return success;
 
