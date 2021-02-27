@@ -46,8 +46,8 @@
 
 
 #ifdef ESP32
-#include <MD5Builder.h>
-#include <esp_partition.h>
+  #include <MD5Builder.h>
+  #include <esp_partition.h>
 #endif
 
 #ifdef ESP32
