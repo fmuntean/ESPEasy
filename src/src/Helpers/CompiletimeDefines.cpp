@@ -22,7 +22,7 @@
 // End of defines being patched by the Python build script.
 
 String get_binary_filename() {
- #if !defined(CORE_POST_2_5_0) && !defined(ESP32)
+ #if !defined(ARDUINO_ESP8266_RELEASE_2_4_2) && !defined(CORE_POST_2_5_0) && !defined(ESP32)
     return F("firmware.bin");
   #else
     return F(SET_BUILD_BINARY_FILENAME ".bin");
@@ -48,7 +48,7 @@ String get_build_origin() {
 }
 
 String get_build_platform() {
- #if !defined(CORE_POST_2_5_0) && !defined(ESP32)
+ #if !defined(ARDUINO_ESP8266_RELEASE_2_4_2) && !defined(CORE_POST_2_5_0) && !defined(ESP32)
     return "";
   #else
   return F(SET_BUILD_PLATFORM);
@@ -56,7 +56,7 @@ String get_build_platform() {
 }
 
 String get_git_head() {
- #if !defined(CORE_POST_2_5_0) && !defined(ESP32)
+ #if !defined(ARDUINO_ESP8266_RELEASE_2_4_2) && !defined(CORE_POST_2_5_0) && !defined(ESP32)
     return "";
   #else
   return F(SET_BUILD_GIT_HEAD);
