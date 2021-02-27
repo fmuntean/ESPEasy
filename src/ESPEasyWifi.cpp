@@ -118,7 +118,7 @@ bool WiFiConnected() {
 
 
   // For ESP82xx, do not rely on WiFi.status() with event based wifi.
-  bool validWiFi = (WiFi.RSSI() < 0) && wifi_isconnected && hasIPaddr();
+  bool validWiFi = (WiFi.RSSI() < 0) && wifi_isconnected && hasIPaddr(); //MFD: I don't think we can read RSSI on ESP32 when not connected
   if (validWiFi != bitRead(wifiStatus, ESPEASY_WIFI_SERVICES_INITIALIZED)) {
     // else wifiStatus is no longer in sync.
     if (checkAndResetWiFi()) {
