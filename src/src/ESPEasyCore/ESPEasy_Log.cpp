@@ -14,6 +14,11 @@
 #include <SD.h>
 #endif
 
+//MFD: include ESP debugging
+#ifdef CORE_DEBUG_LEVEL
+  #include <esp_log.h>
+#endif
+
 /********************************************************************************************\
   Init critical variables for logging (important during initial factory reset stuff )
   \*********************************************************************************************/
@@ -26,6 +31,11 @@ void initLog()
   setLogLevelFor(LOG_TO_SERIAL, 2); //logging during initialisation
   setLogLevelFor(LOG_TO_WEBLOG, 2);
   setLogLevelFor(LOG_TO_SDCARD, 0);
+
+  #ifdef CORE_DEBUG_LEVEL
+    esp_log_level_set("*", ESP_LOG_DEBUG);
+    log_i("enabled ESP logging!");
+  #endif
 }
 
 
