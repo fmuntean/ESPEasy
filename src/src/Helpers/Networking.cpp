@@ -68,8 +68,9 @@ void etharp_gratuitous_r(struct netif *netif) {
 \*********************************************************************************************/
 void syslog(byte logLevel, const char *message)
 {
-  if ((Settings.Syslog_IP[0] != 0) && NetworkConnected())
-  {
+  //if ((Settings.Syslog_IP[0] != 0) && NetworkConnected()) //MFD: network connect is too heavy in here.
+  if ((Settings.Syslog_IP[0] != 0) && WiFi.isConnected()) 
+  {    
     IPAddress broadcastIP(Settings.Syslog_IP[0], Settings.Syslog_IP[1], Settings.Syslog_IP[2], Settings.Syslog_IP[3]);
 
     if (portUDP.beginPacket(broadcastIP, Settings.SyslogPort) == 0) {
