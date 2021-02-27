@@ -42,12 +42,12 @@
 #include <WiFiUdp.h>
 
 #include <lwip/dns.h>
-
 // Generic Networking routines
 
 // Syslog
 // UDP system messaging
 // SSDP
+//  #if LWIP_VERSION_MAJOR == 2
 //  #if LWIP_VERSION_MAJOR == 2
 #define IPADDR2STR(addr) (uint8_t)((uint32_t)addr &  0xFF), (uint8_t)(((uint32_t)addr >> 8) &  0xFF), \
   (uint8_t)(((uint32_t)addr >> 16) &  0xFF), (uint8_t)(((uint32_t)addr >> 24) &  0xFF)
@@ -99,8 +99,9 @@ void etharp_gratuitous_r(struct netif *netif) {
 \*********************************************************************************************/
 void sendSyslog(uint8_t logLevel, const String& message)
 {
-  if ((Settings.Syslog_IP[0] != 0) && NetworkConnected())
-  {
+  //if ((Settings.Syslog_IP[0] != 0) && NetworkConnected()) //MFD: network connect is too heavy in here.
+  if ((Settings.Syslog_IP[0] != 0) && WiFi.isConnected()) 
+  {    
     IPAddress broadcastIP(Settings.Syslog_IP[0], Settings.Syslog_IP[1], Settings.Syslog_IP[2], Settings.Syslog_IP[3]);
 
     FeedSW_watchdog();
@@ -984,7 +985,7 @@ bool hasIPaddr() {
   for (auto addr : addrList) {
     if ((configured = (!addr.isLocal() && (addr.ifnumber() == STATION_IF)))) {
       /*
-         ESPEASY_SERIAL_CONSOLE_PORT.printf("STA: IF='%s' hostname='%s' addr= %s\n",
+         Serial.printf("STA: IF='%s' hostname='%s' addr= %s\n",
                     addr.ifname().c_str(),
                     addr.ifhostname(),
                     addr.toString().c_str());
@@ -1006,7 +1007,7 @@ bool useStaticIP() {
   #endif
   return WiFiUseStaticIP();
 }
-
+// Check connection. Maximum timeout 500 msec.
 // Check connection. Maximum timeout 500 msec.
 bool NetworkConnected(uint32_t timeout_ms) {
 
@@ -1434,7 +1435,7 @@ String getDigestAuth(const String& authReq,
   md5.add(h1 + ':' + nonce + ':' + String(nc) + ':' + cNonce + F(":auth:") + h2);
   md5.calculate();
 
-  // return authorization
+  //  Serial.println(authorization);
   return strformat(
     F("Digest username=\"%s\""
     ", realm=\"%s\""
