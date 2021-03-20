@@ -526,7 +526,7 @@ String send_via_http(const String& logIdentifier,
   PrepareSend();
 
   delay(0);
-#if defined(CORE_POST_2_6_0) || defined(ESP32)
+#if defined(CORE_POST_2_6_0) || defined(ESP32) || defined(ARDUINO_ESP8266_RELEASE_2_4_2)
   http.begin(client, host, port, uri, false); // HTTP
 #else
   http.begin(host, port, uri);

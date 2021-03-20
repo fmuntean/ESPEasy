@@ -1,5 +1,5 @@
 #ifdef USES_P201
-
+#include "_Plugin_Helper.h"
   #ifdef ESP32 //only available for ESP32 due to the cpu power required and the limited ADC capabilities for ESP8266
 
     #include "_Plugin_Helper.h"
@@ -278,7 +278,7 @@
             //This case defines the device characteristics, edit appropriately
             Device[++deviceCount].Number = PLUGIN_ID_201;
             Device[deviceCount].Type = DEVICE_TYPE_ANALOG;  //ANALOG-IN , AR (optional), GAIN (optiona)
-            Device[deviceCount].VType = SENSOR_TYPE_SINGLE; //type of value the plugin will return, used only for Domoticz
+            Device[deviceCount].VType = Sensor_VType::SENSOR_TYPE_SINGLE; //type of value the plugin will return, used only for Domoticz
             Device[deviceCount].Ports = 0;
             Device[deviceCount].PullUpOption = false;
             Device[deviceCount].InverseLogicOption = false;

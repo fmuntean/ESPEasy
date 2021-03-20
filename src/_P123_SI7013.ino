@@ -1,4 +1,5 @@
 #ifdef USES_P123
+#include "_Plugin_Helper.h"
 //#######################################################################################################
 //######################## Plugin 123 SI7013 I2C Temperature Humidity Sensor  ###########################
 //#######################################################################################################
@@ -74,7 +75,7 @@ boolean Plugin_123(byte function, struct EventStruct *event, String& string)
       {
         Device[++deviceCount].Number = PLUGIN_ID_123;
         Device[deviceCount].Type = DEVICE_TYPE_I2C;
-        Device[deviceCount].VType = SENSOR_TYPE_TEMP_HUM_BARO; //using this type in order to send the 3rd value which is the ADC 
+        Device[deviceCount].VType = Sensor_VType::SENSOR_TYPE_TEMP_HUM_BARO; //using this type in order to send the 3rd value which is the ADC 
         Device[deviceCount].Ports = 0;
         Device[deviceCount].PullUpOption = false;
         Device[deviceCount].InverseLogicOption = false;

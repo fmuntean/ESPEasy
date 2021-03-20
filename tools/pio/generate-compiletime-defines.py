@@ -40,7 +40,8 @@ def deduct_flags_from_pioenv():
 # somewhere along the line, another level is removed.
 def wrap_quotes(str_value):
     if platform.system() == 'Windows':
-        return 'VALUE_TO_STRING({})'.format(str_value)
+        return "\"\"\"{}\"\"\"".format(str_value)
+        #return 'VALUE_TO_STRING({})'.format(str_value)
     else:
         return '\'\"\"\"{}\"\"\"\''.format(str_value)
 

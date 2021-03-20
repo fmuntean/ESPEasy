@@ -397,6 +397,15 @@ To create/register a plugin, you have to :
 
 // MFD my minimal plugins for use with 1M devices like ESP07
 #ifdef MFD_PLUGIN_SET_MINIMAL
+    #ifndef BUILD_MINIMAL_OTA
+        #define BUILD_MINIMAL_OTA
+    #endif
+
+    #ifdef USES_TIMING_STATS
+        #undef USES_TIMING_STATS
+    #endif
+    
+
     # define CONTROLLER_SET_NONE
 
     # ifdef USES_C008 

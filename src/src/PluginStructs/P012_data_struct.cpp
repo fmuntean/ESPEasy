@@ -2,9 +2,11 @@
 
 // Needed also here for PlatformIO's library finder as the .h file 
 // is in a directory which is excluded in the src_filter
-#include <LiquidCrystal_I2C.h>
+
 
 #ifdef USES_P012
+
+#include <LiquidCrystal_I2C.h>
 
 P012_data_struct::P012_data_struct(uint8_t addr,
                                    uint8_t lcd_size,

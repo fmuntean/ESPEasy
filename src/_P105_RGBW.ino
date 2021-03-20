@@ -1,4 +1,5 @@
 #ifdef USES_P105
+#include "_Plugin_Helper.h"
 //#######################################################################################################
 //#################################### Plugin 105: RGBW / Milight #######################################
 //#######################################################################################################
@@ -355,7 +356,7 @@ boolean Plugin_105(byte function, struct EventStruct *event, String& string)
 		Device[++deviceCount].Number = PLUGIN_ID_105;
 		Device[deviceCount].Type = DEVICE_TYPE_SINGLE;
 		Device[deviceCount].Custom = true;
-		Device[deviceCount].VType = SENSOR_TYPE_DIMMER;
+		Device[deviceCount].VType = Sensor_VType::SENSOR_TYPE_DIMMER;
 		Device[deviceCount].Ports = 0;
 		break;
 	}

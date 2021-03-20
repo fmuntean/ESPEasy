@@ -2,12 +2,12 @@
 
 // Needed also here for PlatformIO's library finder as the .h file 
 // is in a directory which is excluded in the src_filter
-#include <ESPeasySerial.h>
-#include <Regexp.h>
+
 
 
 #ifdef USES_P094
-
+#include <ESPeasySerial.h>
+#include <Regexp.h>
 #include "../Helpers/StringConverter.h"
 
 P094_data_struct::P094_data_struct() :  easySerial(nullptr) {}

@@ -1,8 +1,9 @@
 #include "../PluginStructs/P016_data_struct.h"
+#include "../Commands/InternalCommands.h"
 
 #ifdef USES_P016
 
-#include "../Commands/InternalCommands.h"
+
 #include "../Helpers/ESPEasy_Storage.h"
 
 P016_data_struct::P016_data_struct() {}

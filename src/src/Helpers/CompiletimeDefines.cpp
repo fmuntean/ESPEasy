@@ -1,5 +1,9 @@
 #include "CompiletimeDefines.h"
 
+
+#define XSTR(x) STR(x)
+#define STR(x) #x
+
 // This file will be "patched" at compiletime by 
 // tools/pio/generate-compiletime-defines.py
 // Therefore this one may not include ESPEasy_common.h
@@ -9,6 +13,8 @@
 #ifndef SET_BUILD_BINARY_FILENAME
 # define SET_BUILD_BINARY_FILENAME "firmware"
 #endif // ifndef SET_BUILD_BINARY_FILENAME
+//#pragma message "SET_BUILD_BINARY_FILENAME: " XSTR(SET_BUILD_BINARY_FILENAME)
+
 
 #ifndef SET_BUILD_PLATFORM
 # define SET_BUILD_PLATFORM "unknown"
@@ -25,7 +31,11 @@ String get_binary_filename() {
  #if !defined(ARDUINO_ESP8266_RELEASE_2_4_2) && !defined(CORE_POST_2_5_0) && !defined(ESP32)
     return F("firmware.bin");
   #else
-    return F(SET_BUILD_BINARY_FILENAME ".bin");
+    #ifdef ARDUINO_ESP8266_RELEASE_2_4_2
+      return F(XSTR(SET_BUILD_BINARY_FILENAME) ".bin");
+    #else
+        return F(SET_BUILD_BINARY_FILENAME ".bin");
+    #endif
   #endif
 }
 
@@ -51,7 +61,11 @@ String get_build_platform() {
  #if !defined(ARDUINO_ESP8266_RELEASE_2_4_2) && !defined(CORE_POST_2_5_0) && !defined(ESP32)
     return "";
   #else
-  return F(SET_BUILD_PLATFORM);
+    #ifdef ARDUINO_ESP8266_RELEASE_2_4_2
+      return F(XSTR(SET_BUILD_PLATFORM));
+    #else
+      return F(SET_BUILD_PLATFORM);
+    #endif
   #endif
 }
 
@@ -59,6 +73,10 @@ String get_git_head() {
  #if !defined(ARDUINO_ESP8266_RELEASE_2_4_2) && !defined(CORE_POST_2_5_0) && !defined(ESP32)
     return "";
   #else
-  return F(SET_BUILD_GIT_HEAD);
+    #ifdef ARDUINO_ESP8266_RELEASE_2_4_2
+      return F(XSTR(SET_BUILD_GIT_HEAD));
+    #else
+      return F(SET_BUILD_GIT_HEAD);
+    #endif
   #endif
 }

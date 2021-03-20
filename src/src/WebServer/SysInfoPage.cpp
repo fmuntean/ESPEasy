@@ -43,6 +43,8 @@
 
 
 #ifdef SHOW_SYSINFO_JSON
+#include "../Globals/Settings.h"
+#include "../WebServer/WebServer.h"
 // ********************************************************************************
 // Web Interface sysinfo page
 // ********************************************************************************
@@ -70,14 +72,14 @@ void handle_sysinfo_json() {
   # ifndef BUILD_NO_RAM_TRACKER
                 lowestRAM
   # else // ifndef BUILD_NO_RAM_TRACKER
-                0
+                F("0")
   # endif // ifndef BUILD_NO_RAM_TRACKER
                 ));
   json_prop(F("low_ram_fn"),
   # ifndef BUILD_NO_RAM_TRACKER
             lowestRAMfunction
   # else // ifndef BUILD_NO_RAM_TRACKER
-            0
+            F("0")
   # endif // ifndef BUILD_NO_RAM_TRACKER
             );
   json_number(F("stack"),     String(getCurrentFreeStack()));
@@ -92,7 +94,7 @@ void handle_sysinfo_json() {
   # ifndef BUILD_NO_RAM_TRACKER
             lowestFreeStackfunction
   # else // ifndef BUILD_NO_RAM_TRACKER
-            0
+            F("0")
   # endif // ifndef BUILD_NO_RAM_TRACKER
             );
   json_close();

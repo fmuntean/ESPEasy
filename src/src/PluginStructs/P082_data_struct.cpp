@@ -3,10 +3,11 @@
 
 // Needed also here for PlatformIO's library finder as the .h file 
 // is in a directory which is excluded in the src_filter
-# include <TinyGPS++.h>
-# include <ESPeasySerial.h>
+
 
 #ifdef USES_P082
+# include <TinyGPS++.h>
+# include <ESPeasySerial.h>
 
 String Plugin_082_valuename(P082_query value_nr, bool displayString) {
   switch (value_nr) {

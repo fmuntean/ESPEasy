@@ -3,6 +3,7 @@
 
 #ifdef WEBSERVER_FACTORY_RESET
 
+#include "../WebServer/JSON.h"
 #include "../WebServer/WebServer.h"
 #include "../WebServer/HTML_wrappers.h"
 #include "../WebServer/Markup.h"
