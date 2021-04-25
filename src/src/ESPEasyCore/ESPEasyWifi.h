@@ -15,7 +15,7 @@
 #include "../DataTypes/WiFiConnectionProtocol.h"
 
 #define WIFI_RECONNECT_WAIT                20000  // in milliSeconds
-#define WIFI_AP_OFF_TIMER_DURATION         60000  // in milliSeconds
+#define WIFI_AP_OFF_TIMER_DURATION         600000  // in milliSeconds
 #define WIFI_CONNECTION_CONSIDERED_STABLE  300000 // in milliSeconds
 #define WIFI_ALLOW_AP_AFTERBOOT_PERIOD     5      // in minutes
 
