@@ -462,6 +462,8 @@ To create/register a plugin, you have to :
 // # define USES_P129 // RC522 RFID reader
     # define USES_P200 // ADS1115 Thermistor
 
+    # define USES_P248 //AHT10 Humidity and Temperature sensor
+
     # define CONTROLLER_SET_NONE
     # define USES_C005 // OpenHAB MQTT
 
