@@ -1,16 +1,12 @@
-//###### MFD: copied from ESPEasyPluginPlayground 
-//######  renamed as P205 because P105 is already in use
-
-
-#ifdef USES_P205
+#ifdef USES_P105
 #include "_Plugin_Helper.h"
 //#######################################################################################################
 //#################################### Plugin 105: RGBW / Milight #######################################
 //#######################################################################################################
 
-#define PLUGIN_205
-#define PLUGIN_ID_205         205
-#define PLUGIN_NAME_205       "RGBW MiLight"
+#define PLUGIN_105
+#define PLUGIN_ID_105         105
+#define PLUGIN_NAME_105       "RGBW MiLight"
 
 #include <Ticker.h>
 #include <math.h>
@@ -20,15 +16,15 @@
 #endif
 
 
-boolean Plugin_205_init = false;
-WiFiUDP Plugin_205_milightUDP;
-int Plugin_205_FadingRate = 50; //   was 10hz
-unsigned int Plugin_205_UDPCmd = 0;
-unsigned int Plugin_205_UDPParameter = 0;
-Ticker Plugin_205_Ticker;
+boolean Plugin_105_init = false;
+WiFiUDP Plugin_105_milightUDP;
+int Plugin_105_FadingRate = 50; //   was 10hz
+unsigned int Plugin_105_UDPCmd = 0;
+unsigned int Plugin_105_UDPParameter = 0;
+Ticker Plugin_105_Ticker;
 
 
-struct Plugin_205_structPins
+struct Plugin_105_structPins
 {
 	unsigned long FadingTimer = 0;
 	int CurrentLevel = 0;
@@ -36,9 +32,9 @@ struct Plugin_205_structPins
 	int FadingMMillisPerStep = 0;
 	int FadingDirection = 0;
 	int PinNo = 0;
-} Plugin_205_Pins[4];
+} Plugin_105_Pins[4];
 
-struct Plugin_205_structRGBFlasher
+struct Plugin_105_structRGBFlasher
 {
 	unsigned int Count = 0;
 	unsigned int OnOff = 0;
@@ -46,9 +42,9 @@ struct Plugin_205_structRGBFlasher
 	unsigned int Red = 0;
 	unsigned int Green = 0;
 	unsigned int Blue = 0;
-} Plugin_205_RGBFlasher;
+} Plugin_105_RGBFlasher;
 
-struct Plugin_205_structMiLight
+struct Plugin_105_structMiLight
 {
 	float HueLevel = 0;
 	float LumLevel = 0.5;
@@ -56,36 +52,36 @@ struct Plugin_205_structMiLight
 	boolean ColourOn = false;
 	boolean WhiteOn = false;
 	unsigned int UDPPort = 0;
-} Plugin_205_MiLight;
+} Plugin_105_MiLight;
 
 
 	/************************/
 	/* handle fading timer */
 	/***********************/
-	void Plugin_205_FadingTimer()
+	void Plugin_105_FadingTimer()
 	{
 		//Fading
 		for (int PinIndex = 0; PinIndex < 4; PinIndex++)
 		{
-			if (Plugin_205_Pins[PinIndex].FadingDirection != 0)
+			if (Plugin_105_Pins[PinIndex].FadingDirection != 0)
 			{
-				if (millis() > Plugin_205_Pins[PinIndex].FadingTimer)
+				if (millis() > Plugin_105_Pins[PinIndex].FadingTimer)
 				{
-					Plugin_205_Pins[PinIndex].FadingTimer = millis() + Plugin_205_Pins[PinIndex].FadingMMillisPerStep;
-					Plugin_205_Pins[PinIndex].CurrentLevel = Plugin_205_Pins[PinIndex].CurrentLevel + Plugin_205_Pins[PinIndex].FadingDirection;
-					if (Plugin_205_Pins[PinIndex].CurrentLevel >= Plugin_205_Pins[PinIndex].FadingTargetLevel && Plugin_205_Pins[PinIndex].FadingDirection > 0)
+					Plugin_105_Pins[PinIndex].FadingTimer = millis() + Plugin_105_Pins[PinIndex].FadingMMillisPerStep;
+					Plugin_105_Pins[PinIndex].CurrentLevel = Plugin_105_Pins[PinIndex].CurrentLevel + Plugin_105_Pins[PinIndex].FadingDirection;
+					if (Plugin_105_Pins[PinIndex].CurrentLevel >= Plugin_105_Pins[PinIndex].FadingTargetLevel && Plugin_105_Pins[PinIndex].FadingDirection > 0)
 					{
-						Plugin_205_Pins[PinIndex].FadingDirection = 0;
-						Plugin_205_Pins[PinIndex].CurrentLevel = Plugin_205_Pins[PinIndex].FadingTargetLevel;
+						Plugin_105_Pins[PinIndex].FadingDirection = 0;
+						Plugin_105_Pins[PinIndex].CurrentLevel = Plugin_105_Pins[PinIndex].FadingTargetLevel;
 						addLog(LOG_LEVEL_INFO, "Fade up complete");
 					}
-					if (Plugin_205_Pins[PinIndex].CurrentLevel <= Plugin_205_Pins[PinIndex].FadingTargetLevel && Plugin_205_Pins[PinIndex].FadingDirection < 0)
+					if (Plugin_105_Pins[PinIndex].CurrentLevel <= Plugin_105_Pins[PinIndex].FadingTargetLevel && Plugin_105_Pins[PinIndex].FadingDirection < 0)
 					{
-						Plugin_205_Pins[PinIndex].FadingDirection = 0;
-						Plugin_205_Pins[PinIndex].CurrentLevel = Plugin_205_Pins[PinIndex].FadingTargetLevel;
+						Plugin_105_Pins[PinIndex].FadingDirection = 0;
+						Plugin_105_Pins[PinIndex].CurrentLevel = Plugin_105_Pins[PinIndex].FadingTargetLevel;
 						addLog(LOG_LEVEL_INFO, "Fade down complete");
 					}
-					analogWrite(Plugin_205_Pins[PinIndex].PinNo, Plugin_205_Pins[PinIndex].CurrentLevel);
+					analogWrite(Plugin_105_Pins[PinIndex].PinNo, Plugin_105_Pins[PinIndex].CurrentLevel);
 				}
 			}
 		}
@@ -94,17 +90,17 @@ struct Plugin_205_structMiLight
 /**********************************************************************/
 /* handle udp packets for milight emulation*/
 /**********************************************************************/
-void Plugin_205_ProcessUDP()
+void Plugin_105_ProcessUDP()
 {
 	boolean MiLightUpdate = false;
-	switch (int(Plugin_205_UDPCmd))
+	switch (int(Plugin_105_UDPCmd))
 	{
 
 	case 65:	 //off
 	case 70:
 	case 33:
 	{
-		Plugin_205_MiLight.ColourOn = false;
+		Plugin_105_MiLight.ColourOn = false;
 		MiLightUpdate = true;
 		break;
 	}
@@ -112,94 +108,94 @@ void Plugin_205_ProcessUDP()
 	case 69:
 	case 74:
 	{
-		Plugin_205_MiLight.ColourOn = true;
+		Plugin_105_MiLight.ColourOn = true;
 		MiLightUpdate = true;
 		break;
 	}
 	case 32: 	 //set colour
 	case 64:
 	{
-		Plugin_205_MiLight.HueLevel = 256 - Plugin_205_UDPParameter + 192;
-		Plugin_205_MiLight.HueLevel = (Plugin_205_MiLight.HueLevel / 256) * 360;
-		Plugin_205_MiLight.HueLevel = int(Plugin_205_MiLight.HueLevel) % 360;
-		Plugin_205_MiLight.HueLevel = Plugin_205_MiLight.HueLevel / 360;
+		Plugin_105_MiLight.HueLevel = 256 - Plugin_105_UDPParameter + 192;
+		Plugin_105_MiLight.HueLevel = (Plugin_105_MiLight.HueLevel / 256) * 360;
+		Plugin_105_MiLight.HueLevel = int(Plugin_105_MiLight.HueLevel) % 360;
+		Plugin_105_MiLight.HueLevel = Plugin_105_MiLight.HueLevel / 360;
 		MiLightUpdate = true;
-		Plugin_205_MiLight.ColourOn = true;
+		Plugin_105_MiLight.ColourOn = true;
 		break;
 	}
 	case 78:	//brightness
 	{
-		Plugin_205_MiLight.LumLevel = Plugin_205_UDPParameter;
-		Plugin_205_MiLight.LumLevel = Plugin_205_MiLight.LumLevel / 54;
+		Plugin_105_MiLight.LumLevel = Plugin_105_UDPParameter;
+		Plugin_105_MiLight.LumLevel = Plugin_105_MiLight.LumLevel / 54;
 		MiLightUpdate = true;
-		Plugin_205_MiLight.ColourOn = true;
+		Plugin_105_MiLight.ColourOn = true;
 		break;
 	}
 	case 35:	//increase brightness
 	{
-		Plugin_205_MiLight.LumLevel = Plugin_205_MiLight.LumLevel + 0.05;
-		if (Plugin_205_MiLight.LumLevel > 1) Plugin_205_MiLight.LumLevel = 1;
+		Plugin_105_MiLight.LumLevel = Plugin_105_MiLight.LumLevel + 0.05;
+		if (Plugin_105_MiLight.LumLevel > 1) Plugin_105_MiLight.LumLevel = 1;
 		MiLightUpdate = true;
-		Plugin_205_MiLight.ColourOn = true;
+		Plugin_105_MiLight.ColourOn = true;
 		break;
 	}
 	case 36:	//decrease brightness
 	{
-		Plugin_205_MiLight.LumLevel = Plugin_205_MiLight.LumLevel - 0.05;
-		if (Plugin_205_MiLight.LumLevel < 0) Plugin_205_MiLight.LumLevel = 0;
+		Plugin_105_MiLight.LumLevel = Plugin_105_MiLight.LumLevel - 0.05;
+		if (Plugin_105_MiLight.LumLevel < 0) Plugin_105_MiLight.LumLevel = 0;
 		MiLightUpdate = true;
-		Plugin_205_MiLight.ColourOn = true;
+		Plugin_105_MiLight.ColourOn = true;
 		break;
 	}
 	case 39:	//increase saturation
 	{
-		Plugin_205_MiLight.SatLevel = Plugin_205_MiLight.SatLevel + 0.05;
-		if (Plugin_205_MiLight.SatLevel > 1) Plugin_205_MiLight.SatLevel = 1;
+		Plugin_105_MiLight.SatLevel = Plugin_105_MiLight.SatLevel + 0.05;
+		if (Plugin_105_MiLight.SatLevel > 1) Plugin_105_MiLight.SatLevel = 1;
 		MiLightUpdate = true;
-		Plugin_205_MiLight.ColourOn = true;
+		Plugin_105_MiLight.ColourOn = true;
 		break;
 	}
 	case 40:	//decrease saturation
 	{
-		Plugin_205_MiLight.SatLevel = Plugin_205_MiLight.SatLevel - 0.05;
-		if (Plugin_205_MiLight.SatLevel < 0) Plugin_205_MiLight.SatLevel = 0;
+		Plugin_105_MiLight.SatLevel = Plugin_105_MiLight.SatLevel - 0.05;
+		if (Plugin_105_MiLight.SatLevel < 0) Plugin_105_MiLight.SatLevel = 0;
 		MiLightUpdate = true;
-		Plugin_205_MiLight.ColourOn = true;
+		Plugin_105_MiLight.ColourOn = true;
 		break;
 	}
 	}
 
 	if (MiLightUpdate == true)
 	{
-		if (Plugin_205_MiLight.ColourOn == true)
+		if (Plugin_105_MiLight.ColourOn == true)
 		{
-			//Plugin_205_HSL2Rgb(Plugin_205_MiLight.HueLevel, Plugin_205_MiLight.SatLevel, Plugin_205_MiLight.LumLevel);
+			//Plugin_105_HSL2Rgb(Plugin_105_MiLight.HueLevel, Plugin_105_MiLight.SatLevel, Plugin_105_MiLight.LumLevel);
 
-			if (Plugin_205_RGBFlasher.Count == 0) //only change led colour if not flashing, selected colour will be applied after flashing concludes
+			if (Plugin_105_RGBFlasher.Count == 0) //only change led colour if not flashing, selected colour will be applied after flashing concludes
 			{
-				analogWrite(Plugin_205_Pins[0].PinNo, Plugin_205_Pins[0].CurrentLevel);
-				analogWrite(Plugin_205_Pins[1].PinNo, Plugin_205_Pins[1].CurrentLevel);
-				analogWrite(Plugin_205_Pins[2].PinNo, Plugin_205_Pins[2].CurrentLevel);
+				analogWrite(Plugin_105_Pins[0].PinNo, Plugin_105_Pins[0].CurrentLevel);
+				analogWrite(Plugin_105_Pins[1].PinNo, Plugin_105_Pins[1].CurrentLevel);
+				analogWrite(Plugin_105_Pins[2].PinNo, Plugin_105_Pins[2].CurrentLevel);
 				//Serial.println("Setting RGB To:");
-				//Serial.println(Plugin_205_Pins[0].CurrentLevel);
-				//Serial.println(Plugin_205_Pins[1].CurrentLevel);
-				//Serial.println(Plugin_205_Pins[2].CurrentLevel);
+				//Serial.println(Plugin_105_Pins[0].CurrentLevel);
+				//Serial.println(Plugin_105_Pins[1].CurrentLevel);
+				//Serial.println(Plugin_105_Pins[2].CurrentLevel);
 			}
 		}
 		else
 		{
-			if (Plugin_205_RGBFlasher.Count == 0) //only change led colour if not flashing, selected colour will be applied after flashing concludes
+			if (Plugin_105_RGBFlasher.Count == 0) //only change led colour if not flashing, selected colour will be applied after flashing concludes
 			{
-				analogWrite(Plugin_205_Pins[0].PinNo, 0);
-				analogWrite(Plugin_205_Pins[1].PinNo, 0);
-				analogWrite(Plugin_205_Pins[2].PinNo, 0);
+				analogWrite(Plugin_105_Pins[0].PinNo, 0);
+				analogWrite(Plugin_105_Pins[1].PinNo, 0);
+				analogWrite(Plugin_105_Pins[2].PinNo, 0);
 			}
 		}
 	}
 
 }
 
-float Plugin_205_Hue2RGB(float v1, float v2, float vH)
+float Plugin_105_Hue2RGB(float v1, float v2, float vH)
 {
 	if (vH < 0) vH += 1;
 	if (vH > 1) vH -= 1;
@@ -208,7 +204,7 @@ float Plugin_205_Hue2RGB(float v1, float v2, float vH)
 	if ((3 * vH) < 2) return v1 + (v2 - v1) * ((0.66666666666) - vH) * 6;
 	return (v1);
 }
-void Plugin_205_HSL2Rgb(float h, float s, float l)
+void Plugin_105_HSL2Rgb(float h, float s, float l)
 {
 	float holdval;
 	float r = 0;
@@ -236,13 +232,13 @@ void Plugin_205_HSL2Rgb(float h, float s, float l)
 		float p = (2 * l) - q;
 
 		holdval = h + 0.3333333333;
-		r = Plugin_205_Hue2RGB(p, q, holdval);
+		r = Plugin_105_Hue2RGB(p, q, holdval);
 
 		holdval = h;
-		g = Plugin_205_Hue2RGB(p, q, holdval);
+		g = Plugin_105_Hue2RGB(p, q, holdval);
 
 		holdval = h - 0.3333333333;
-		b = Plugin_205_Hue2RGB(p, q, holdval);
+		b = Plugin_105_Hue2RGB(p, q, holdval);
 
 	}
 
@@ -250,14 +246,14 @@ void Plugin_205_HSL2Rgb(float h, float s, float l)
 	g = g * 1023 + 0.5;
 	b = b * 1023 + 0.5;
 
-	Plugin_205_Pins[0].CurrentLevel = floor(r);
-	Plugin_205_Pins[1].CurrentLevel = floor(g);
-	Plugin_205_Pins[2].CurrentLevel = floor(b);
+	Plugin_105_Pins[0].CurrentLevel = floor(r);
+	Plugin_105_Pins[1].CurrentLevel = floor(g);
+	Plugin_105_Pins[2].CurrentLevel = floor(b);
 
 	//fail safes
-	if (Plugin_205_Pins[0].CurrentLevel > 1023)  Plugin_205_Pins[0].CurrentLevel = 1023;
-	if (Plugin_205_Pins[1].CurrentLevel > 1023)  Plugin_205_Pins[1].CurrentLevel = 1023;
-	if (Plugin_205_Pins[2].CurrentLevel > 1023)  Plugin_205_Pins[2].CurrentLevel = 1023;
+	if (Plugin_105_Pins[0].CurrentLevel > 1023)  Plugin_105_Pins[0].CurrentLevel = 1023;
+	if (Plugin_105_Pins[1].CurrentLevel > 1023)  Plugin_105_Pins[1].CurrentLevel = 1023;
+	if (Plugin_105_Pins[2].CurrentLevel > 1023)  Plugin_105_Pins[2].CurrentLevel = 1023;
 }
 
 
@@ -349,7 +345,7 @@ uint16_t clamp(uint16_t x,uint16_t min,uint16_t max ) {
 
 
 
-boolean Plugin_205(byte function, struct EventStruct *event, String& string)
+boolean Plugin_105(byte function, struct EventStruct *event, String& string)
 {
 	boolean success = false;
 
@@ -357,7 +353,7 @@ boolean Plugin_205(byte function, struct EventStruct *event, String& string)
 	{
 	case PLUGIN_DEVICE_ADD:
 	{
-		Device[++deviceCount].Number = PLUGIN_ID_205;
+		Device[++deviceCount].Number = PLUGIN_ID_105;
 		Device[deviceCount].Type = DEVICE_TYPE_SINGLE;
 		Device[deviceCount].Custom = true;
 		Device[deviceCount].VType = Sensor_VType::SENSOR_TYPE_DIMMER;
@@ -367,7 +363,7 @@ boolean Plugin_205(byte function, struct EventStruct *event, String& string)
 
 	case PLUGIN_GET_DEVICENAME:
 	{
-		string = F(PLUGIN_NAME_205);
+		string = F(PLUGIN_NAME_105);
 		break;
 	}
 
@@ -379,11 +375,11 @@ boolean Plugin_205(byte function, struct EventStruct *event, String& string)
 	case PLUGIN_WEBFORM_LOAD:
 	{
 		addFormSubHeader(F("RGBW Settings"));
-		addFormNumericBox(F("Milight UDP Port"), F("Plugin_205_port"), ExtraTaskSettings.TaskDevicePluginConfigLong[0], 1,65535); //Limited to valid ports, should default to 8899, but not implemented.
-		addFormNumericBox(F("Red Pin"), F("Plugin_205_RedPin"), ExtraTaskSettings.TaskDevicePluginConfigLong[1], 0, 16); //Limited to available GPIO pins only
-		addFormNumericBox(F("Green Pin"), F("Plugin_205_GreenPin"), ExtraTaskSettings.TaskDevicePluginConfigLong[2], 0, 16);
-		addFormNumericBox(F("Blue Pin"), F("Plugin_205_BluePin"), ExtraTaskSettings.TaskDevicePluginConfigLong[3], 0, 16);
-		addFormNumericBox(F("White Pin"), F("Plugin_205_WhitePin"), ExtraTaskSettings.TaskDevicePluginConfigLong[4], 0, 16);
+		addFormNumericBox(F("Milight UDP Port"), F("plugin_105_port"), ExtraTaskSettings.TaskDevicePluginConfigLong[0], 1,65535); //Limited to valid ports, should default to 8899, but not implemented.
+		addFormNumericBox(F("Red Pin"), F("plugin_105_RedPin"), ExtraTaskSettings.TaskDevicePluginConfigLong[1], 0, 16); //Limited to available GPIO pins only
+		addFormNumericBox(F("Green Pin"), F("plugin_105_GreenPin"), ExtraTaskSettings.TaskDevicePluginConfigLong[2], 0, 16);
+		addFormNumericBox(F("Blue Pin"), F("plugin_105_BluePin"), ExtraTaskSettings.TaskDevicePluginConfigLong[3], 0, 16);
+		addFormNumericBox(F("White Pin"), F("plugin_105_WhitePin"), ExtraTaskSettings.TaskDevicePluginConfigLong[4], 0, 16);
 
 		success = true;
 		break;
@@ -391,11 +387,11 @@ boolean Plugin_205(byte function, struct EventStruct *event, String& string)
 
 	case PLUGIN_WEBFORM_SAVE:
 	{
-		ExtraTaskSettings.TaskDevicePluginConfigLong[0] = getFormItemInt(F("Plugin_205_port"));
-		ExtraTaskSettings.TaskDevicePluginConfigLong[1] = getFormItemInt(F("Plugin_205_RedPin"));
-		ExtraTaskSettings.TaskDevicePluginConfigLong[2] = getFormItemInt(F("Plugin_205_GreenPin"));
-		ExtraTaskSettings.TaskDevicePluginConfigLong[3] = getFormItemInt(F("Plugin_205_BluePin"));
-		ExtraTaskSettings.TaskDevicePluginConfigLong[4] = getFormItemInt(F("Plugin_205_WhitePin"));
+		ExtraTaskSettings.TaskDevicePluginConfigLong[0] = getFormItemInt(F("plugin_105_port"));
+		ExtraTaskSettings.TaskDevicePluginConfigLong[1] = getFormItemInt(F("plugin_105_RedPin"));
+		ExtraTaskSettings.TaskDevicePluginConfigLong[2] = getFormItemInt(F("plugin_105_GreenPin"));
+		ExtraTaskSettings.TaskDevicePluginConfigLong[3] = getFormItemInt(F("plugin_105_BluePin"));
+		ExtraTaskSettings.TaskDevicePluginConfigLong[4] = getFormItemInt(F("plugin_105_WhitePin"));
 		SaveTaskSettings(event->TaskIndex);
 		success = true;
 		break;
@@ -406,21 +402,21 @@ boolean Plugin_205(byte function, struct EventStruct *event, String& string)
 		LoadTaskSettings(event->TaskIndex);
 
 		//udp port
-		Plugin_205_MiLight.UDPPort = ExtraTaskSettings.TaskDevicePluginConfigLong[0];
-		if (Plugin_205_MiLight.UDPPort != 0)
+		Plugin_105_MiLight.UDPPort = ExtraTaskSettings.TaskDevicePluginConfigLong[0];
+		if (Plugin_105_MiLight.UDPPort != 0)
 		{
-			if (Plugin_205_milightUDP.begin(Plugin_205_MiLight.UDPPort)) addLog(LOG_LEVEL_INFO, "INIT: Milight UDP");
+			if (Plugin_105_milightUDP.begin(Plugin_105_MiLight.UDPPort)) addLog(LOG_LEVEL_INFO, "INIT: Milight UDP");
 		}
 
 		//rgbw gpio pins
 		boolean SetupTimer = false;
 		for (int PinIndex = 0; PinIndex < 4; PinIndex++)
 		{
-			Plugin_205_Pins[PinIndex].PinNo = ExtraTaskSettings.TaskDevicePluginConfigLong[PinIndex + 1];
-			if (Plugin_205_Pins[PinIndex].PinNo != 0)
+			Plugin_105_Pins[PinIndex].PinNo = ExtraTaskSettings.TaskDevicePluginConfigLong[PinIndex + 1];
+			if (Plugin_105_Pins[PinIndex].PinNo != 0)
 			{
-				pinMode(Plugin_205_Pins[PinIndex].PinNo, OUTPUT);
-				digitalWrite(Plugin_205_Pins[PinIndex].PinNo, LOW);
+				pinMode(Plugin_105_Pins[PinIndex].PinNo, OUTPUT);
+				digitalWrite(Plugin_105_Pins[PinIndex].PinNo, LOW);
 				SetupTimer = true;
 			}
 		}
@@ -428,66 +424,66 @@ boolean Plugin_205(byte function, struct EventStruct *event, String& string)
 		if (SetupTimer == true)
 		{
 			addLog(LOG_LEVEL_INFO, "INIT: Milight Fading Timer");
-			Plugin_205_Ticker.attach_ms(20, Plugin_205_FadingTimer);
+			Plugin_105_Ticker.attach_ms(20, Plugin_105_FadingTimer);
 		}
 
-		Plugin_205_init = true;
+		Plugin_105_init = true;
 		success = true;
 		break;
 	}
 
 	case PLUGIN_TEN_PER_SECOND:
 	{
-		if (Plugin_205_init)
+		if (Plugin_105_init)
 		{
 
 			// UDP events for milight emulation
-			if (Plugin_205_MiLight.UDPPort != 0)
+			if (Plugin_105_MiLight.UDPPort != 0)
 			{
-				int packetSize = Plugin_205_milightUDP.parsePacket();
+				int packetSize = Plugin_105_milightUDP.parsePacket();
 				if (packetSize)
 				{
 					char packetBuffer[128];
-					int len = Plugin_205_milightUDP.read(packetBuffer, 128);
+					int len = Plugin_105_milightUDP.read(packetBuffer, 128);
 					if (len == 3 && packetBuffer[2] == 85)
 					{
 					//Serial.println("Commands received ");
 					//Serial.println(int(packetBuffer[0]));
 					//Serial.println(int(packetBuffer[1]));
 					//Serial.println(int(packetBuffer[2]));
-						Plugin_205_UDPCmd = packetBuffer[0];
-						Plugin_205_UDPParameter = packetBuffer[1];
-						Plugin_205_ProcessUDP();
+						Plugin_105_UDPCmd = packetBuffer[0];
+						Plugin_105_UDPParameter = packetBuffer[1];
+						Plugin_105_ProcessUDP();
 					}
 				}
 			}
 
 			//RGB flashing
-			if (Plugin_205_RGBFlasher.Count > 0 && millis() > Plugin_205_RGBFlasher.Freq)
+			if (Plugin_105_RGBFlasher.Count > 0 && millis() > Plugin_105_RGBFlasher.Freq)
 			{
-				Plugin_205_RGBFlasher.Freq = millis() + 500; //half second flash rate
-				Plugin_205_RGBFlasher.OnOff = 1 - Plugin_205_RGBFlasher.OnOff;
-				if (Plugin_205_RGBFlasher.OnOff == 1)
+				Plugin_105_RGBFlasher.Freq = millis() + 500; //half second flash rate
+				Plugin_105_RGBFlasher.OnOff = 1 - Plugin_105_RGBFlasher.OnOff;
+				if (Plugin_105_RGBFlasher.OnOff == 1)
 				{
-					analogWrite(Plugin_205_Pins[0].PinNo, Plugin_205_RGBFlasher.Red);
-					analogWrite(Plugin_205_Pins[1].PinNo, Plugin_205_RGBFlasher.Green);
-					analogWrite(Plugin_205_Pins[2].PinNo, Plugin_205_RGBFlasher.Blue);
+					analogWrite(Plugin_105_Pins[0].PinNo, Plugin_105_RGBFlasher.Red);
+					analogWrite(Plugin_105_Pins[1].PinNo, Plugin_105_RGBFlasher.Green);
+					analogWrite(Plugin_105_Pins[2].PinNo, Plugin_105_RGBFlasher.Blue);
 				}
 				else
 				{
-					analogWrite(Plugin_205_Pins[0].PinNo, 0);
-					analogWrite(Plugin_205_Pins[1].PinNo, 0);
-					analogWrite(Plugin_205_Pins[2].PinNo, 0);
-					Plugin_205_RGBFlasher.Count = Plugin_205_RGBFlasher.Count - 1;
+					analogWrite(Plugin_105_Pins[0].PinNo, 0);
+					analogWrite(Plugin_105_Pins[1].PinNo, 0);
+					analogWrite(Plugin_105_Pins[2].PinNo, 0);
+					Plugin_105_RGBFlasher.Count = Plugin_105_RGBFlasher.Count - 1;
 				}
-				if (Plugin_205_RGBFlasher.Count == 0)
+				if (Plugin_105_RGBFlasher.Count == 0)
 				{
-					if (Plugin_205_MiLight.ColourOn == true)
+					if (Plugin_105_MiLight.ColourOn == true)
 					{
 						addLog(LOG_LEVEL_INFO, "Restoring to colour...");
-						analogWrite(Plugin_205_Pins[0].PinNo, Plugin_205_Pins[0].CurrentLevel);
-						analogWrite(Plugin_205_Pins[1].PinNo, Plugin_205_Pins[1].CurrentLevel);
-						analogWrite(Plugin_205_Pins[2].PinNo, Plugin_205_Pins[2].CurrentLevel);
+						analogWrite(Plugin_105_Pins[0].PinNo, Plugin_105_Pins[0].CurrentLevel);
+						analogWrite(Plugin_105_Pins[1].PinNo, Plugin_105_Pins[1].CurrentLevel);
+						analogWrite(Plugin_105_Pins[2].PinNo, Plugin_105_Pins[2].CurrentLevel);
 					}
 					addLog(LOG_LEVEL_INFO, "Flashing RGB complete");
 				}
@@ -541,23 +537,23 @@ boolean Plugin_205(byte function, struct EventStruct *event, String& string)
 		//if (GetArgv(command, TmpStr1, 8)) Par[7] = str2int(TmpStr1);
 
 		//initialise LED Flashing if not flashing already
-		if (command==F("rgbflash") && Plugin_205_RGBFlasher.Count == 0 && Par[1] <= 1023 && Par[2] <= 1023 && Par[3] <= 1023 && Par[4] > 0 && Par[4] <= 20)
+		if (command==F("rgbflash") && Plugin_105_RGBFlasher.Count == 0 && Par[1] <= 1023 && Par[2] <= 1023 && Par[3] <= 1023 && Par[4] > 0 && Par[4] <= 20)
 		{
 			success = true;
-			Plugin_205_RGBFlasher.Red = Par[1];
-			Plugin_205_RGBFlasher.Green = Par[2];
-			Plugin_205_RGBFlasher.Blue = Par[3];
-			Plugin_205_RGBFlasher.Count = Par[4];
-			Plugin_205_RGBFlasher.OnOff = 0;
-			Plugin_205_RGBFlasher.Freq = millis() + 500;
+			Plugin_105_RGBFlasher.Red = Par[1];
+			Plugin_105_RGBFlasher.Green = Par[2];
+			Plugin_105_RGBFlasher.Blue = Par[3];
+			Plugin_105_RGBFlasher.Count = Par[4];
+			Plugin_105_RGBFlasher.OnOff = 0;
+			Plugin_105_RGBFlasher.Freq = millis() + 500;
 
 			//conclude any ongoing rgb fades
 			for (int PinIndex = 0; PinIndex < 3; PinIndex++)
 			{
-				if (Plugin_205_Pins[PinIndex].FadingDirection != 0)
+				if (Plugin_105_Pins[PinIndex].FadingDirection != 0)
 				{
-					Plugin_205_Pins[PinIndex].FadingDirection = 0;
-					Plugin_205_Pins[PinIndex].CurrentLevel = Plugin_205_Pins[PinIndex].FadingTargetLevel;
+					Plugin_105_Pins[PinIndex].FadingDirection = 0;
+					Plugin_105_Pins[PinIndex].CurrentLevel = Plugin_105_Pins[PinIndex].FadingTargetLevel;
 				}
 			}
 
@@ -577,15 +573,15 @@ boolean Plugin_205(byte function, struct EventStruct *event, String& string)
 			success = true;
 			if (Par[2] >= 0 && Par[2] <= 1023 && Par[1] >= 0 && Par[1] <= 3 && Par[3] > 0 && Par[3] < 30)
 			{
-				if (Par[1] == 3 || (Plugin_205_RGBFlasher.Count == 0 && Plugin_205_RGBFlasher.OnOff == 0)) //white pin or no flashing going so init fade
+				if (Par[1] == 3 || (Plugin_105_RGBFlasher.Count == 0 && Plugin_105_RGBFlasher.OnOff == 0)) //white pin or no flashing going so init fade
 				{
-					Plugin_205_Pins[Par[1]].FadingTargetLevel = Par[2];
-					Plugin_205_Pins[Par[1]].FadingMMillisPerStep = 1000 / Plugin_205_FadingRate;
-					Plugin_205_Pins[Par[1]].FadingDirection = (abs(Plugin_205_Pins[Par[1]].FadingTargetLevel - Plugin_205_Pins[Par[1]].CurrentLevel)) / (Plugin_205_FadingRate * Par[3]);
-					if (Plugin_205_Pins[Par[1]].FadingDirection == 0) { Plugin_205_Pins[Par[1]].FadingDirection = 1; }
-					if (Plugin_205_Pins[Par[1]].CurrentLevel == Plugin_205_Pins[Par[1]].FadingTargetLevel) { Plugin_205_Pins[Par[1]].FadingDirection = 0; }
-					if (Plugin_205_Pins[Par[1]].CurrentLevel > Plugin_205_Pins[Par[1]].FadingTargetLevel) { Plugin_205_Pins[Par[1]].FadingDirection = Plugin_205_Pins[Par[1]].FadingDirection * -1; }
-					Plugin_205_Pins[Par[1]].FadingTimer = millis();
+					Plugin_105_Pins[Par[1]].FadingTargetLevel = Par[2];
+					Plugin_105_Pins[Par[1]].FadingMMillisPerStep = 1000 / Plugin_105_FadingRate;
+					Plugin_105_Pins[Par[1]].FadingDirection = (abs(Plugin_105_Pins[Par[1]].FadingTargetLevel - Plugin_105_Pins[Par[1]].CurrentLevel)) / (Plugin_105_FadingRate * Par[3]);
+					if (Plugin_105_Pins[Par[1]].FadingDirection == 0) { Plugin_105_Pins[Par[1]].FadingDirection = 1; }
+					if (Plugin_105_Pins[Par[1]].CurrentLevel == Plugin_105_Pins[Par[1]].FadingTargetLevel) { Plugin_105_Pins[Par[1]].FadingDirection = 0; }
+					if (Plugin_105_Pins[Par[1]].CurrentLevel > Plugin_105_Pins[Par[1]].FadingTargetLevel) { Plugin_105_Pins[Par[1]].FadingDirection = Plugin_105_Pins[Par[1]].FadingDirection * -1; }
+					Plugin_105_Pins[Par[1]].FadingTimer = millis();
 					if (printToWeb)
 					{
 						printWebString += F("PWM fading over ");
@@ -597,9 +593,9 @@ boolean Plugin_205(byte function, struct EventStruct *event, String& string)
 				}
 				else // currently flashing so set fade completed
 				{
-					Plugin_205_Pins[Par[1]].FadingTargetLevel = Par[2];
-					Plugin_205_Pins[Par[1]].FadingDirection = 0;
-					Plugin_205_Pins[Par[1]].CurrentLevel = Plugin_205_Pins[Par[1]].FadingTargetLevel;
+					Plugin_105_Pins[Par[1]].FadingTargetLevel = Par[2];
+					Plugin_105_Pins[Par[1]].FadingDirection = 0;
+					Plugin_105_Pins[Par[1]].CurrentLevel = Plugin_105_Pins[Par[1]].FadingTargetLevel;
 				}
 			}
 		}

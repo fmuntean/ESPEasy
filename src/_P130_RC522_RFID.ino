@@ -1,14 +1,14 @@
-#ifdef USES_P130
+#ifdef USES_P129
 #include "_Plugin_Helper.h"
 //#######################################################################################################
 //################################ Plugin-214: RC522 SPI RFID reader ####################################
 //#######################################################################################################
 
-#define PLUGIN_130
-#define PLUGIN_ID_130         130
-#define PLUGIN_NAME_130       "RFID - RC522 SPI"
-#define PLUGIN_VALUENAME1_130 "Tag"
-#define PLUGIN_130_CS         16
+#define PLUGIN_129
+#define PLUGIN_ID_129         129
+#define PLUGIN_NAME_129       "RFID - RC522 SPI"
+#define PLUGIN_VALUENAME1_129 "Tag"
+#define PLUGIN_129_CS         16
 
 #define MFRC522_SPICLOCK SPI_CLOCK_DIV8
 #include <SPI.h>
@@ -16,10 +16,10 @@
 
 MFRC522 mfrc522;
 
-uint8_t Plugin_130_packetbuffer[64];
-uint8_t Plugin_130_command;
+uint8_t Plugin_129_packetbuffer[64];
+uint8_t Plugin_129_command;
 
-boolean Plugin_130(byte function, struct EventStruct *event, String& string)
+boolean Plugin_129(byte function, struct EventStruct *event, String& string)
 {
   boolean success = false;
 
@@ -30,7 +30,7 @@ boolean Plugin_130(byte function, struct EventStruct *event, String& string)
 
     case PLUGIN_DEVICE_ADD:
       {
-        Device[++deviceCount].Number = PLUGIN_ID_130;
+        Device[++deviceCount].Number = PLUGIN_ID_129;
         Device[deviceCount].Type = DEVICE_TYPE_SINGLE;
         Device[deviceCount].VType = Sensor_VType::SENSOR_TYPE_LONG;
         Device[deviceCount].Ports = 0;
@@ -45,13 +45,13 @@ boolean Plugin_130(byte function, struct EventStruct *event, String& string)
 
     case PLUGIN_GET_DEVICENAME:
       {
-        string = F(PLUGIN_NAME_130);
+        string = F(PLUGIN_NAME_129);
         break;
       }
 
     case PLUGIN_GET_DEVICEVALUENAMES:
       {
-        strcpy_P(ExtraTaskSettings.TaskDeviceValueNames[0], PSTR(PLUGIN_VALUENAME1_130));
+        strcpy_P(ExtraTaskSettings.TaskDeviceValueNames[0], PSTR(PLUGIN_VALUENAME1_129));
         break;
       }
 
@@ -69,7 +69,7 @@ boolean Plugin_130(byte function, struct EventStruct *event, String& string)
         {
           String log = F("MFRC522: Init");
           addLog(LOG_LEVEL_INFO, log);
-          if(Plugin_130_Init(Settings.TaskDevicePin1[event->TaskIndex],Settings.TaskDevicePin3[event->TaskIndex]))
+          if(Plugin_129_Init(Settings.TaskDevicePin1[event->TaskIndex],Settings.TaskDevicePin3[event->TaskIndex]))
             break;
           delay(1000);
         }
@@ -88,7 +88,7 @@ boolean Plugin_130(byte function, struct EventStruct *event, String& string)
           counter = 0;
           uint8_t uid[] = { 0, 0, 0, 0, 0, 0, 0 };
           uint8_t uidLength;
-          byte error = Plugin_130_readPassiveTargetID(PN532_MIFARE_ISO14443A, uid, &uidLength);
+          byte error = Plugin_129_readPassiveTargetID(PN532_MIFARE_ISO14443A, uid, &uidLength);
 
           if (error == 1)
           {
@@ -102,7 +102,7 @@ boolean Plugin_130(byte function, struct EventStruct *event, String& string)
 
           if (errorCount > 2) // if three consecutive I2C errors, reset PN532
           {
-            Plugin_130_Init(Settings.TaskDevicePin1[event->TaskIndex],Settings.TaskDevicePin3[event->TaskIndex]);
+            Plugin_129_Init(Settings.TaskDevicePin1[event->TaskIndex],Settings.TaskDevicePin3[event->TaskIndex]);
           }
 
           if (error == 0) {
@@ -132,7 +132,7 @@ boolean Plugin_130(byte function, struct EventStruct *event, String& string)
 /*********************************************************************************************\
  * MFRC522 init
 \*********************************************************************************************/
-boolean Plugin_130_Init(int8_t csPin, int8_t resetPin)
+boolean Plugin_129_Init(int8_t csPin, int8_t resetPin)
 {
   if (resetPin != -1)
   {
@@ -201,7 +201,7 @@ boolean Plugin_130_Init(int8_t csPin, int8_t resetPin)
 /*********************************************************************************************\
  * RC522 read tag ID
 \*********************************************************************************************/
-byte Plugin_130_readPassiveTargetID(uint8_t cardbaudrate, uint8_t *uid, uint8_t *uidLength)
+byte Plugin_129_readPassiveTargetID(uint8_t cardbaudrate, uint8_t *uid, uint8_t *uidLength)
 {
   // Getting ready for Reading PICCs
   if ( ! mfrc522.PICC_IsNewCardPresent()) { //If a new PICC placed to RFID reader continue
