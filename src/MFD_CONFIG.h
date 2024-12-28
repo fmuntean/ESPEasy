@@ -84,7 +84,7 @@
 	#undef BUILD_GIT
 #endif
 
-#define BUILD_GIT "MFD-mega-2022_11_02"
+#define BUILD_GIT "MFD-mega-2022_11_04"
 
 //###########################################################################################
 //##                         MFD BOARDS                                                    ##

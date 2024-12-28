@@ -86,7 +86,7 @@ boolean Plugin_200(byte function, struct EventStruct *event, String& string)
     {
       #define ADS1115_I2C_OPTION 4
       byte addr                            = PCONFIG(0);
-      int optionValues[ADS1115_I2C_OPTION] = { 0x48, 0x49, 0x4A, 0x4B };
+      uint8_t optionValues[ADS1115_I2C_OPTION] = { 0x48, 0x49, 0x4A, 0x4B };
       addFormSelectorI2C(F("p200_i2c"), ADS1115_I2C_OPTION, optionValues, addr);
 
       addFormSubHeader(F("Input"));
@@ -332,4 +332,4 @@ uint16_t p200_readRegister(uint8_t i2cAddress, uint8_t reg) {
   return (Wire.read() << 8) | Wire.read();
 }
 
-#endif // USES_P025
+#endif // USES_P200
