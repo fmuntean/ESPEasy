@@ -162,10 +162,10 @@ boolean Plugin_200(byte function, struct EventStruct *event, String& string)
       p200_prepareRead(address, pga,mux);
       delay(8);
       uint16_t filter_power = (uint16_t)PCONFIG_LONG(1);
-      UserVar[event->BaseVarIndex+2] = (float)p200_readRegister((address), (0x00)); // read conversion register
-      UserVar[event->BaseVarIndex+3] = UserVar[event->BaseVarIndex+2]* filter_power;
+      uint16_t conversion_reg =  p200_readRegister((address), (0x00)); // read conversion register
+      UserVar.setFloat(event->TaskIndex,  3,conversion_reg * filter_power);
       uint32_t Vref = 6600 << pga;        // calculate the 3v3 /2  adc value
-     UserVar[event->BaseVarIndex+2] = UserVar[event->BaseVarIndex+2] / (float)Vref; // compensate for the 2^pga gain
+      UserVar.setFloat(event->TaskIndex,  2, conversion_reg / (float)Vref); // compensate for the 2^pga gain
       //Plugin_200_init = true;
       success         = true;
       break;
@@ -207,14 +207,14 @@ boolean Plugin_200(byte function, struct EventStruct *event, String& string)
         //MA[i]= MA[i-1] +X[i] - MA[i-1]/N
         // where MA is the moving average*N.
         //avg[i]= MA[i]/N
-        avg = UserVar[event->BaseVarIndex+3] / (float)filter_power;
-        UserVar[event->BaseVarIndex+3] = UserVar[event->BaseVarIndex+3] + (float)raw -  avg;
+        avg = UserVar.getFloat(event->TaskIndex,3) / (float)filter_power;
+        UserVar.setFloat(event->TaskIndex,3, UserVar.getFloat(event->TaskIndex,3) + (float)raw -  avg);
       } else
       {
         PCONFIG(3) = pga;
         //uint8_t filter_power=(1<<4); //2^4
         avg = (float)raw;
-        UserVar[event->BaseVarIndex+3] = (float)raw * filter_power;
+        UserVar.setFloat(event->TaskIndex,3, (float)raw * filter_power);
         
       }
       
@@ -234,7 +234,7 @@ boolean Plugin_200(byte function, struct EventStruct *event, String& string)
       delay(8);
       int16_t offset = p200_readRegister(address,0x00 );
       */
-      UserVar[event->BaseVarIndex+2] = avg / (float)Vref; // compensate for the 2^pga gain
+      UserVar.setFloat(event->TaskIndex,2, avg / (float)Vref); // compensate for the 2^pga gain
   
 
       success = true;
@@ -244,12 +244,12 @@ boolean Plugin_200(byte function, struct EventStruct *event, String& string)
     case PLUGIN_READ:
     {
       
-      String _log = F("ADS1115 : ");
+     // String _log = F("ADS1115 : ");
 
       //_log+=F(" offset:"); _log+=offset;
       //_log += F(" Vref:"); _log += Vref;
       float dv = UserVar[event->BaseVarIndex+2] ; //contains the raw moving average value
-      _log += F(" dv:"); _log += dv;
+      //_log += F(" dv:"); _log += dv;
 
 
       // float Rt = (1-dv/Vref)/(1+dv/Vref); 
@@ -257,7 +257,7 @@ boolean Plugin_200(byte function, struct EventStruct *event, String& string)
       //where Vt =Vp - Vn (differential voltage read)
       double ln = log((1 + dv) / (1 - dv));
 
-      _log += F(" ln:"); _log += ln;
+      //_log += F(" ln:"); _log += ln;
 
       float beta = PCONFIG_LONG(0);
 
@@ -268,12 +268,12 @@ boolean Plugin_200(byte function, struct EventStruct *event, String& string)
       #define T0 298.15
       double temperature = (beta * T0)/ (beta + T0*ln)- 273.15;
 
-      UserVar[event->BaseVarIndex] = temperature; //temperature based on beta value
+      UserVar.setFloat(event->TaskIndex,0, temperature); //temperature based on beta value
 
       // Rt =  R*(1 + 2*voltage / vdd )/(1- 2*voltage / vdd)
       // ln = log(Rt/R) = log ( (1+2*voltage/vdd)/(1-2*voltage/vdd) )
       // Tc = 1 / ( (ln / beta) + (1 / 298.15) ) - 273.15;
-      addLog(LOG_LEVEL_DEBUG, _log);
+      //addLog(LOG_LEVEL_DEBUG, _log);
 
 
       //double Tc = 1 / (ln / beta + 1 / 298.15) - 273.15;
@@ -286,7 +286,7 @@ boolean Plugin_200(byte function, struct EventStruct *event, String& string)
      //parameters obtained from: https://www.google.com/url?sa=t&rct=j&q=&esrc=s&source=web&cd=1&cad=rja&uact=8&ved=2ahUKEwj70M625fnlAhUxqlkKHbTnCEwQFjAAegQIARAC&url=https%3A%2F%2Fedwardmallon.files.wordpress.com%2F2017%2F04%2Fntc-steinhart_and_hart_calculator.xls&usg=AOvVaw3qmQIDzgNcWww0a9uqrbwE
      double Tc1 = 1/ (PCONFIG_FLOAT(0)+ lnR*(PCONFIG_FLOAT(1) + PCONFIG_FLOAT(2)*lnR*lnR) ) - 273.15;
 
-      UserVar[event->BaseVarIndex + 1] = Tc1; //temperature based on steinhart formula
+      UserVar.setDouble(event->TaskIndex , 1, Tc1); //temperature based on steinhart formula
 
 
 

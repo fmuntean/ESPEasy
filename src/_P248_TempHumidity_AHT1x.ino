@@ -121,8 +121,8 @@ boolean Plugin_248(byte function, struct EventStruct *event, String& string)
         P248_data->state = Values_read;
       
       
-        UserVar[event->BaseVarIndex]     = P248_data->last_temp_val;
-        UserVar[event->BaseVarIndex + 1] = P248_data->last_hum_val;
+        UserVar.setFloat(event->TaskIndex,0,P248_data->last_temp_val);
+        UserVar.setFloat(event->TaskIndex, 1, P248_data->last_hum_val);
         
         if (loglevelActiveFor(LOG_LEVEL_INFO)) {
           String log = F("AHT1x: Temperature: ");
