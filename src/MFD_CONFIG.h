@@ -84,7 +84,7 @@
 	#undef BUILD_GIT
 #endif
 
-#define BUILD_GIT "MFD-mega-2022_11_04"
+#define BUILD_GIT "MFD-mega-2024_12_22"
 
 //###########################################################################################
 //##                         MFD BOARDS                                                    ##
@@ -127,7 +127,7 @@
     //    #define WEBSERVER_SYSINFO
     //    #define WEBSERVER_TOOLS
 
-    #define SHOW_SYSINFO_JSON  //enable sysinfo_json 
+    #define SHOW_SYSINFO_JSON 1 //enable sysinfo_json 
     #define VTABLES_IN_IRAM   //store VTABLES in ram
 
     # define USES_C005 // OpenHAB MQTT
@@ -153,8 +153,8 @@
     # define PLUGIN_SET_NONE
     # define NOTIFIER_SET_NONE
     # define CONTROLLER_SET_NONE
-    #ifdef USES_SERVO
-        # undef USES_SERVO
+    #ifdef FEATURE_SERVO
+        # undef FEATURE_SERVO
     #endif
     # define BUILD_MINIMAL_OTA
     #ifndef BUILD_NO_DEBUG
@@ -306,6 +306,8 @@
 #ifdef MFD_PLUGIN_SET_PROD
     # define PLUGIN_BUILD_CUSTOM
     # define PLUGIN_SET_NONE
+    # define FEATURE_SERVO 0 
+    # define SHOW_SYSINFO_JSON 1 //enable sysinfo_json 
 
     # define USES_P001 // Switch
     # define USES_P002 // ADC
@@ -318,7 +320,7 @@
     # define USES_P033 // Dummy
     # define USES_P069 // LM75A Temperature Sensor
 
-    #define USES_P097   // Touch (ESP32)
+    //#define USES_P097   // Touch (ESP32)
 
     # define USES_P205 //RGBW Light
 //    # define USES_P123 // SI7013 Temperature Humidity and ADC (using P014 as I added support ot that plugin)
