@@ -1,709 +1,528 @@
-#ifdef USES_P123
-
 #include "../PluginStructs/P123_data_struct.h"
 
+#ifdef USES_P123
 
+# include "../Helpers/AdafruitGFX_helper.h"
 
-// the main constructor
-P123_data_struct::P123_data_struct() :
-  last_hum_val(0.0f),
-  last_temp_val(0.0f),
-  last_measurement(0),
-  state(P123_state::Uninitialized) {}
-
-//check if the plugin is initialized
-bool P123_data_struct::initialized() const {
-  return state != P123_state::Uninitialized;
+const __FlashStringHelper* toString(P123_TouchType_e tType) {
+  switch (tType) {
+    case P123_TouchType_e::FT62x6: return F("FT62x6 (0x38)");
+    case P123_TouchType_e::GT911_1: return F("GT911 (0x5D)");
+    case P123_TouchType_e::GT911_2: return F("GT911 (0x14)");
+    case P123_TouchType_e::CST820: return F("CST820 (0x15)");
+    case P123_TouchType_e::CST226: return F("CST226 (0x5A)");
+    case P123_TouchType_e::AXS15231: return F("AXS15231 (0x3B)");
+    case P123_TouchType_e::CHSC5816: return F("CHSC5816 (0x2E)");
+    case P123_TouchType_e::Automatic: return F("Auto-detect");
+  }
+  return F("");
 }
 
-
-//The main state machine
-//Only perform the measurements with big interval to prevent the sensor from warming up.
-bool P123_data_struct::update(uint8_t i2caddr, uint8_t resolution, uint8_t filter_power) {
-  const unsigned long current_time = millis();
-  int8_t ret=0;
-  switch(state){
-    case P123_state::Uninitialized:
-        if ((ret=begin(i2caddr,resolution))!=0) {
-          String log =F("SI7013: begin Failed! ret=");
-          log+= String(ret,HEX);
-          addLog(LOG_LEVEL_ERROR,log);
-          return false;
-        }
-
-        state            = P123_state::Ready;
-        last_measurement = 0;
-        if ( (ret=readADC(i2caddr,filter_power)) !=0 ){
-          String log = F("SI7013: readADC Failed! ret=");
-          log+= String(ret,HEX);
-          addLog(LOG_LEVEL_ERROR,log);
-        }
-        last_adc_val = last_adc_val << filter_power; //this is the first measurement 
-    break;
-
-    case P123_state::Ready:
-        last_measurement = current_time;
-        if ( (ret=startConv(i2caddr, SI7013_MEASURE_HUM,resolution)) !=0) { //measure humidity and temperature at the same time
-          String log = F("SI7013: startConv Failed! ret=");
-          log+= String(ret,HEX);
-          addLog(LOG_LEVEL_ERROR,log);
-        }
-        state = P123_state::Wait_for_HUM;
-    break;
-
-    case P123_state::Error:
-        if ((ret=softReset(i2caddr))!=0){
-          String log= F("SI7013: softReset Failed! Err=");
-          log += String(ret,HEX);
-          addLog(LOG_LEVEL_ERROR,log);
-          return false;
-        }
-        state = P123_state::Ready;
-    break;
-
-    case P123_state::Wait_for_HUM:
-        //make sure we wait for the measurement to complete
-        if (!timeOutReached(last_measurement + SI7013_MEASURMENT_DELAY)) {
-          return false;
-        }
-
-        if ((ret=readHumidity(i2caddr, resolution))!=0) {
-          String log= F("SI7013: readHumidity Failed! Err=");
-          log += String(ret,HEX);
-          addLog(LOG_LEVEL_ERROR,log);
-          state = P123_state::Error;
-          return false;
-        }
-        last_measurement = current_time;
-        //last_temp_val    = readTemperature();
-        //last_hum_val     = readHumidity();
-        //last_adc_val     = readADC();
-        if ((ret=requestTemperature(i2caddr))!=0){
-          String log= F("SI7013: requestTemperature Failed! Err=");
-          log += String(ret,HEX);
-          addLog(LOG_LEVEL_ERROR,log);
-          state = P123_state::Error;
-          return false;
-        }
-        state = P123_state::Wait_for_Temp;
-    break;
-
-    case P123_state::Wait_for_Temp:
-        if ((ret=readTemperature(i2caddr, resolution))!=0){
-          String log= F("SI7013: readTemperature Failed! Err=");
-          log += String(ret,HEX);
-          addLog(LOG_LEVEL_ERROR,log);
-          state = P123_state::Error;
-          return false;
-        }
-
-        if ((ret=requestADC(i2caddr))!=0){
-          String log= F("SI7013: requestADC Failed! Err=");
-          log += String(ret,HEX);
-          addLog(LOG_LEVEL_ERROR,log);
-          state = P123_state::Error;
-          return false;
-        }
-        state = P123_state::Wait_for_ADC;
-    break;
-
-    case P123_state::Wait_for_ADC:
-        if ((ret=readADC(i2caddr, filter_power))!=0){
-          String log= F("SI7013: readADC Failed! Err=");
-          log += String(ret,HEX);
-          addLog(LOG_LEVEL_ERROR,log);
-          state = P123_state::Error;
-          return false;
-        }
-        state = P123_state::New_values_available;
-    break;
-
-    default: //anything not defined above sends the device for initialization
-      state = P123_state::Uninitialized;
-  }  
-  return true;
-}
-
-
-/* ======================================================================
-Function: Plugin_123_si7013_begin
-Purpose : read the user register from the sensor
-Input   : user register value filled by function
-Output  : 0 if okay
-        : -1 device not available at the expected address
-        : 
-Comments: -
-====================================================================== */
-int8_t P123_data_struct::begin(uint8_t i2caddr, uint8_t resolution)
-{
-  int8_t ret;
-
-  
-  //Wire.beginTransmission(i2caddr);
-  //if (Wire.endTransmission()){
-  if(I2C_wakeup(i2caddr)){
-    addLog(LOG_LEVEL_ERROR,F("SI7013: Device not available!")); 
-
-    Wire.requestFrom(i2caddr, 10u);
-    while(Wire.available()>=1) {
-      Wire.read();
-    }
-    
-  
-
-    return -1; // device not available at the expected address
-  }
-
-
-  softReset(i2caddr);
-  uint8_t reg;
-  if ( (ret=readRegister(i2caddr,SI7013_READ_REG1, &reg))!=0){
-    addLog(LOG_LEVEL_ERROR,F("SI7013: Can't read SI7013_READ_REG1!"));
-    return -2;
-  }
-
-  if (reg != 0x3A){
-    addLog(LOG_LEVEL_ERROR,F("SI7013: SI7013_READ_REG1 does not match default value"));
-    return -3; //invalid register1 value after reset
-  }
-
-  readSerialNumber(i2caddr);
-  readRevision(i2caddr);
-
-
-  // Set the resolution we want
-  
-  if ( (ret = setResolution(i2caddr, resolution)!=0))  {
-    String log = F("SI7013 : Res=0x");
-    log += String(resolution,HEX);
-    log += F(" => Error 0x");
-    log += String(ret,HEX);
-    addLog(LOG_LEVEL_ERROR,log);
-    ret = -4;
-  }
-
-  return ret;
-}
-
-/* ======================================================================
-Function: Plugin_123_si7013_checkCRC
-Purpose : check the CRC of received data
-Input   : value read from sensor
-Output  : CRC read from sensor
-Comments: 0 if okay
-====================================================================== */
-uint8_t P123_data_struct::checkCRC(uint16_t data, uint8_t check)
-{
-  uint32_t remainder, divisor;
-
-  //Pad with 8 bits because we have to add in the check value
-  remainder = (uint32_t)data << 8;
-
-  // From: http://www.nongnu.org/avr-libc/user-manual/group__util__crc.html
-  // POLYNOMIAL = 0x0131 = x^8 + x^5 + x^4 + 1 : http://en.wikipedia.org/wiki/Computation_of_cyclic_redundancy_checks
-  // 0x988000 is the 0x0131 polynomial shifted to farthest left of three bytes
-  divisor = (uint32_t) 0x988000;
-
-  // Add the check value
-  remainder |= check;
-
-  // Operate on only 16 positions of max 24.
-  // The remaining 8 are our remainder and should be zero when we're done.
-  for (uint8_t i = 0 ; i < 16 ; i++) {
-    //Check if there is a one in the left position
-    if( remainder & (uint32_t)1<<(23 - i) )
-      remainder ^= divisor;
-
-    //Rotate the divisor max 16 times so that we have 8 bits left of a remainder
-    divisor >>= 1;
-  }
-  return ((uint8_t) remainder);
-}
-
-/* ======================================================================
-Function: si7013_readRegister
-Purpose : read the user register from the sensor
-Input   : user register value filled by function
-Output  : 0 if okay
-Comments: -
-====================================================================== */
-int8_t P123_data_struct::readRegister(uint8_t i2caddr, const uint8_t reg, uint8_t * value)
-{
-  
-  // Request user register
-  Wire.beginTransmission(i2caddr);
-  Wire.write(reg);
-  Wire.endTransmission();
-
-  // request 1 byte result
-  Wire.requestFrom(i2caddr, 1u);
-  if (Wire.available()>=1) {
-      *value = Wire.read();
-      return 0;
-  }
-
-  return 0;
-}
-
-/* ======================================================================
-Function: Plugin_123_si7013_startConv
-Purpose : return temperature or humidity measured
-Input   : data type SI7013_READ_HUM or SI7013_READ_TEMP
-          current config resolution
-Output  : 0 if okay
-Comments: internal values of temp and rh are set
-====================================================================== */
-int8_t P123_data_struct::startConv(uint8_t i2caddr, uint8_t datatype, uint8_t resolution)
-{
-  //long data;
-  //uint16_t raw ;
-  //uint8_t checksum,tmp;
-
-
-
-  //Request a reading
-  Wire.beginTransmission(i2caddr);
-  Wire.write(datatype);
-  Wire.endTransmission();
-
-  // Tried clock streching and looping until no NACK from SI7021 to know
-  // when conversion's done. None have worked so far !!!
-  // I fade up, I'm waiting maximum conversion time + 1ms, this works !!
-  // I increased these value to add HTU21D compatibility
-  // Max for SI7021 is 3/5/7/12 ms
-  // max for HTU21D is 7/13/25/50 ms
-
-  // Martinus modification 2016-01-07:
-  // My test sample was still not working with 11 bit
-  // So to be more safe, we add 5 ms to each and use 8,10,13,21 ms
-  // But for ESP Easy, I think it does not matter at all...
-
-  // Martinus is correct there was a bug Measure HUM need
-  // hum+temp delay because it also measure temp
-
-  /*
-  if (resolution == SI7013_RESOLUTION_11T_11RH)
-    tmp = 7;
-  else if (resolution == SI7013_RESOLUTION_12T_08RH)
-    tmp = 13;
-  else if (resolution == SI7013_RESOLUTION_13T_10RH)
-    tmp = 25;
-  else
-    tmp = 30;
-
-  // Humidity fire also temp measurment so delay
-  // need to be increased by 2 if no Hold Master
-  if (datatype == SI7013_MEASURE_HUM)
-    tmp *=2;
-
-  if (datatype != SI7013_READ_TEMP_FROM_HUM)
-      delay(tmp);
-
-  
-  // Wait for data to become available, device will NACK during conversion
-  tmp = 0;
-  do
-  {
-    // Request device
-    Wire.beginTransmission(SI7021_I2C_ADDRESS);
-    //Wire.write(SI7021_READ_REG);
-    error = Wire.endTransmission(true);
-    delay(1);
-  }
-  // always use time out in loop to avoid potential lockup (here 12ms max)
-  // https://www.silabs.com/Support%20Documents/TechnicalDocs/Si7021-A20.pdf page 5
-  while(error!=0 && tmp++<=12 );
-  */
-
-
-
-  return 0;
-}
-
-
-
-int8_t P123_data_struct::readHumidity(uint8_t i2caddr, uint8_t resolution)
-{
-    uint16_t raw;
-    uint8_t bytes = Wire.requestFrom(i2caddr, 3u); //asking to read 3 bytes  
-    if ( bytes < 3 ) {
-      return -1;
-    }
-
-    // Comes back in three bytes, data(MSB) / data(LSB) / Checksum
-    raw  = ((uint16_t) Wire.read()) << 8;
-    raw |= Wire.read();
-    uint8_t checksum = Wire.read();
-
-
-    // Check CRC of data received
-    if(checkCRC(raw, checksum) != 0) {
-      addLog(LOG_LEVEL_ERROR,F("SI7013 : checksum error!"));
-      return -1;
-    }
-
-    // Convert raw value to Humidity percent
-    // pm-cz: it is possible to enable decimal places for humidity as well by multiplying the value in formula by 100
-    uint16_t data = ((1250 * (long)raw) >> 16) - 60;
-
-    // Datasheet says doing this check
-    if (data>1000) data = 1000;
-    if (data<0)   data = 0;
-
-    //pm-cz: Let us make sure we have enough precision due to ADC bits
-    if (resolution == SI7013_RESOLUTION_12T_08RH) {
-      data = (data + 5) / 10;
-      data *= 10;
-    }
-    // save value
-    last_hum_val = data/10.0f;
-
-  return 0;
-}
-
-
-int8_t P123_data_struct::requestTemperature(uint8_t i2caddr){
-  
-  // Temperature
-  //Request a reading
-  Wire.beginTransmission(i2caddr);
-  Wire.write(SI7013_READ_TEMP_FROM_HUM);
-  Wire.endTransmission();
-
-  return 0;
-}
-
-int8_t P123_data_struct::readTemperature(uint8_t i2caddr, uint8_t resolution){
-  
-  // Temperature
-  //Request a reading
-  //Wire.beginTransmission(i2caddr);
-  //Wire.write(SI7013_READ_TEMP_FROM_HUM);
-  //Wire.endTransmission();
-
-  
-  //delay(10);
-  
-  uint8_t bytes = Wire.requestFrom(i2caddr, 2u); //asking to read 2 bytes  
-  if ( bytes < 2 ) {
-    return -1;
-  }
-
-  // Comes back in three bytes, data(MSB) / data(LSB) / Checksum
-  uint16_t   raw  = ((uint16_t) Wire.read()) << 8;
-  raw |= Wire.read();
-
-  // Convert value to Temperature (*100)
-  // for 23.45C value will be 2345
-  int16_t data =  ((17572 * (long)raw) >> 16) - 4685;
-
-  
-  // pm-cz: We should probably check for precision here as well
-  if (resolution != SI7013_RESOLUTION_14T_12RH) {
-    if (data > 0) {
-      data = (data + 5) / 10;
-    } else {
-      data = (data - 5) / 10;
-    }
-    data *= 10;
-  }
-  
-
-  // save value
-  last_temp_val =  data / 100.0f;
-  
-  return 0;
-}
-
-/* ======================================================================
-Function: Plugin_123_si7013_readValues
-Purpose : read temperature and humidity from SI7021 sensor
-Input   : current config resolution
-Output  : 0 if okay
-Comments: -
-====================================================================== */
-int8_t P123_data_struct::readValues(uint8_t i2caddr, uint8_t resolution, uint8_t filter_power)
-{
-  int8_t error = 0;
-
-  // start humidity conversion
- // error |= startConv(i2caddr, SI7013_MEASURE_HUM, resolution); //measures both humidity and temperature 
- //error |= Plugin_123_si7013_startConv(i2caddr, SI7013_MEASURE_HUM_HM, resolution); //measures only humidity
-  
-
- //the humidity is actually doing a temperature reading Too
- //error|= Plugin_014_si7021_startConv(SI7021_READ_REG)
-
-  // start temperature conversion
-  //error |= Plugin_123_si7013_startConv(i2caddr, SI7013_MEASURE_TEMP, resolution);
-  
-  //error |= Plugin_123_si7013_startConv(i2caddr, SI7013_READ_TEMP_FROM_HUM, resolution);
-
-  uint16_t raw;
-    uint8_t bytes = Wire.requestFrom(i2caddr, 3u); //asking to read 3 bytes  
-    if ( bytes < 2 ) {
-      return -1;
- 
-    if (bytes == 2){
-      // Comes back in two bytes, data(MSB) / data(LSB)  (no Checksum)
-        raw  = ((uint16_t) Wire.read()) << 8;
-        raw |= Wire.read();
-    }else
-    {
-    
-    //if ( Wire.requestFrom(i2caddr, 3u) < 3 ) {
-    //  return -1;
-    //}
-
-    // Comes back in three bytes, data(MSB) / data(LSB) / Checksum
-    raw  = ((uint16_t) Wire.read()) << 8;
-    raw |= Wire.read();
-    uint8_t checksum = Wire.read();
-
-
-    // Check CRC of data received
-    if(checkCRC(raw, checksum) != 0) {
-      addLog(LOG_LEVEL_ERROR,F("SI7013 : checksum error!"));
-      return -1;
-    }
-
-  }
-  // Humidity
-  //if (datatype == SI7013_MEASURE_HUM || datatype == SI7013_MEASURE_HUM_HM) {
-    // Convert value to Humidity percent
-    // pm-cz: it is possible to enable decimal places for humidity as well by multiplying the value in formula by 100
-    uint16_t data = ((1250 * (long)raw) >> 16) - 60;
-
-    // Datasheet says doing this check
-    if (data>1000) data = 1000;
-    if (data<0)   data = 0;
-
-    //pm-cz: Let us make sure we have enough precision due to ADC bits
-    if (resolution == SI7013_RESOLUTION_12T_08RH) {
-      data = (data + 5) / 10;
-      data *= 10;
-    }
-    // save value
-    last_hum_val = data/10.0f;
-
-  // Temperature
-  //Request a reading
-  Wire.beginTransmission(i2caddr);
-  Wire.write(SI7013_READ_TEMP_FROM_HUM);
-  Wire.endTransmission();
-
-  
-    // Convert value to Temperature (*100)
-    // for 23.45C value will be 2345
-    data =  ((17572 * (long)raw) >> 16) - 4685;
-
-    /*
-    // pm-cz: We should probably check for precision here as well
-    if (resolution != SI7021_RESOLUTION_14T_12RH) {
-      if (data > 0) {
-        data = (data + 5) / 10;
-      } else {
-        data = (data - 5) / 10;
-      }
-      data *= 10;
-    }
-    */
-
-    // save value
-    last_temp_val =  data / 100.0f;
-  }
-  
-  error|= readADC(i2caddr,filter_power);
-
-  return error;
-}
-
-
-
-int8_t P123_data_struct::requestADC(uint8_t i2caddr)
-{
-  
-  uint8_t reg;
-  int8_t error;
-
-  //set VOUT
-  // Get the current register value
-  error = readRegister(i2caddr, SI7013_READ_REG2, &reg);
-  if ( error == 0) {
-       
-      // Prepare to write to the register value
-    Wire.beginTransmission(i2caddr);
-    Wire.write(SI7013_WRITE_REG2);
-    
-    Wire.write(reg | (1+2+4+64) );//set last three bits to 1 (VIN bufered, Vref=VDD, VOUT=VDD) and No-Hold for bit 6
-
-    Wire.endTransmission();
- 
-    //read adc
-    Wire.beginTransmission(i2caddr);
-    Wire.write(SI7013_READ_ADC);
-    Wire.endTransmission();
-
-    //delay(10); //wating for conversion to be done in the specs is mentioned 7ms in normal mode
-  }
-  return error;
-}
-
-int8_t P123_data_struct::readADC(uint8_t i2caddr, uint8_t filter_power)
-{
-  if ( Wire.requestFrom(i2caddr, 2u) < 2 ) {
-    return -1;
-  }
-
-  // Comes back in two bytes, data(MSB) / data(LSB) with no Checksum
-  uint16_t raw  = ((uint16_t) Wire.read()) << 8;
-  raw |= Wire.read();
-
-  //Calculate Moving average where 2^filter_power is the moving window of points
-  //MA*[i]= MA*[i-1] +X[i] - MA*[i-1]/N
-  last_adc_val = last_adc_val + raw - (last_adc_val>>filter_power);
-  
-  //set vout to gnd to not consume power
-  Wire.beginTransmission(i2caddr);
-    Wire.write(SI7013_WRITE_REG2);
-    Wire.write(SI7013_REG2_DEFAULT);
-  return (int8_t) Wire.endTransmission();
-}
-
-/* ======================================================================
-Function: Plugin_123_si7013_setResolution
-Purpose : Sets the sensor resolution to one of four levels
-Input   : see #define default is SI7013_RESOLUTION_14T_12RH
-Output  : 0 if okay
-Comments: -
-====================================================================== */
-int8_t P123_data_struct::setResolution(uint8_t i2caddr, uint8_t resolution)
-{
-  uint8_t reg;
-  uint8_t error;
-
-  // Get the current register value
-  error = readRegister(i2caddr, SI7013_READ_REG1, &reg);
-  if ( error == 0) {
-    // remove resolution bits
-    reg &= SI7013_RESOLUTION_MASK ;
-
-    // Prepare to write to the register value
-    Wire.beginTransmission(i2caddr);
-    Wire.write(SI7013_WRITE_REG1);
-
-    // Write the new resolution bits but clear unused before
-    Wire.write(reg | ( resolution &= ~SI7013_RESOLUTION_MASK) );
-    return (int8_t) Wire.endTransmission();
-  }
-
-  return error;
-}
-
-
-int8_t P123_data_struct::softReset(uint8_t i2caddr){
-  // Prepare to write to the register value
-    Wire.beginTransmission(i2caddr);
-    Wire.write(SI7013_SOFT_RESET);
-    Wire.endTransmission();
-    delay(50);
-    return 0;
-}
-
-
-int8_t P123_data_struct::readRevision(uint8_t i2caddr) {
-  Wire.beginTransmission(i2caddr);
-  Wire.write((uint8_t)(SI7013_FIRMVERS_CMD >> 8));
-  Wire.write((uint8_t)(SI7013_FIRMVERS_CMD & 0xFF));
-  Wire.endTransmission();
-
-  uint32_t start = millis(); // start timeout
-  while (millis() - start < SI7013_MEASURMENT_DELAY) {
-    if (Wire.requestFrom(i2caddr, 2u) == 2) {
-      uint8_t rev = Wire.read();
-      Wire.read();
-
-      String log = F("SI7013 : revision=");
-      log += String(rev,HEX);
-      addLog(LOG_LEVEL_INFO,log);
-      
-      return 0;
-    }
-    delay(2);
-  }
-  return -1; // Error timeout
-}
-
-/*!
- *  @brief  Reads serial number and stores It in sernum_a and sernum_b variable
+/**
+ * Order must match enum P123_TouchType_e, with Automatic (-1) ignored
  */
-int8_t P123_data_struct::readSerialNumber(uint8_t i2caddr) {
-  
-  Wire.beginTransmission(i2caddr);
-  Wire.write((uint8_t)(SI7013_ID1_CMD >> 8));
-  Wire.write((uint8_t)(SI7013_ID1_CMD & 0xFF));
-  Wire.endTransmission();
+const uint8_t P123_i2cAddressValues[] = { FT6X36_ADDR, GT911_ADDR1, GT911_ADDR2, CST820_ADDR, CST226_ADDR, AXS15231_ADDR, CHSC5816_ADDR };
 
-  bool gotData = false;
-  uint32_t start = millis(); // start timeout
-  while (millis() - start < SI7013_MEASURMENT_DELAY) {
-    if (Wire.requestFrom(i2caddr, 8u) == 8) {
-      gotData = true;
-      break;
-    }
-    delay(2);
+bool P123_data_struct::plugin_i2c_has_address(const int Par1) {
+  return intArrayContains(NR_ELEMENTS(P123_i2cAddressValues), P123_i2cAddressValues, Par1);
+}
+
+uint8_t P123_data_struct::plugin_i2c_address(P123_TouchType_e touchType) {
+  const int tType = static_cast<int>(touchType);
+
+  if ((tType >= 0) && (tType < NR_ELEMENTS(P123_i2cAddressValues))) {
+    return P123_i2cAddressValues[tType];
   }
-  if (!gotData)
-    return -1; // error timeout
+  return 0u;
+}
 
-  uint32_t sernum_a = Wire.read();
-  Wire.read();
-  sernum_a <<= 8;
-  sernum_a |= Wire.read();
-  Wire.read();
-  sernum_a <<= 8;
-  sernum_a |= Wire.read();
-  Wire.read();
-  sernum_a <<= 8;
-  sernum_a |= Wire.read();
-  Wire.read();
+P123_TouchType_e P123_data_struct::getTouchType() {
+  if (nullptr != touchscreen) {
+    const int stype = touchscreen->sensorType();
 
-  Wire.beginTransmission(i2caddr);
-  Wire.write((uint8_t)(SI7013_ID2_CMD >> 8));
-  Wire.write((uint8_t)(SI7013_ID2_CMD & 0xFF));
-  Wire.endTransmission();
+    switch (stype) {
+      case CT_TYPE_FT6X36: return P123_TouchType_e::FT62x6;
+      case CT_TYPE_GT911:
 
-  gotData = false;
-  start = millis(); // start timeout
-  while (millis() - start < SI7013_MEASURMENT_DELAY) {
-    if (Wire.requestFrom(i2caddr, 8u) == 8) {
-      gotData = true;
-      break;
+        if (GT911_ADDR1 == touchscreen->getI2CAddress()) {
+          return P123_TouchType_e::GT911_1;
+        } else {
+          return P123_TouchType_e::GT911_2;
+        }
+      case CT_TYPE_CST820: return P123_TouchType_e::CST820;
+      case CT_TYPE_CST226: return P123_TouchType_e::CST226;
+      case CT_TYPE_AXS15231: return P123_TouchType_e::AXS15231;
+      case CT_TYPE_CHSC5816: return P123_TouchType_e::CHSC5816;
     }
-    delay(2);
   }
-  if (!gotData)
-    return -2; // error timeout
+  return P123_TouchType_e::Automatic;
+}
 
-  uint32_t sernum_b = Wire.read();
-  Wire.read();
-  sernum_b <<= 8;
-  sernum_b |= Wire.read();
-  Wire.read();
-  sernum_b <<= 8;
-  sernum_b |= Wire.read();
-  Wire.read();
-  sernum_b <<= 8;
-  sernum_b |= Wire.read();
-  Wire.read();
+int P123_data_struct::getBBCapTouchType(P123_TouchType_e touchType) {
+  switch (touchType) {
+    case P123_TouchType_e::Automatic: return CT_TYPE_UNKNOWN;
+    case P123_TouchType_e::FT62x6: return CT_TYPE_FT6X36;
+    case P123_TouchType_e::GT911_1: // Fall through
+    case P123_TouchType_e::GT911_2: return CT_TYPE_GT911;
+    case P123_TouchType_e::CST820: return CT_TYPE_CST820;
+    case P123_TouchType_e::CST226: return CT_TYPE_CST226;
+    case P123_TouchType_e::AXS15231: return CT_TYPE_AXS15231;
+    case P123_TouchType_e::CHSC5816: return CT_TYPE_CHSC5816;
+  }
+  return CT_TYPE_UNKNOWN;
+}
 
-  String log = F("SI7013 : sn=");
-  log += String(sernum_a,HEX);
-  log += String(sernum_b,HEX);
-  addLog(LOG_LEVEL_INFO,log);
+/**
+ * Constructor
+ */
+P123_data_struct::P123_data_struct(P123_TouchType_e touchType)
+  : _touchType(touchType) {
+  touchHandler = new (std::nothrow) ESPEasy_TouchHandler(); // Temporary object to be able to call loadTouchObjects
+  _i2caddr     = plugin_i2c_address(_touchType);
+}
 
+/**
+ * Destructor
+ */
+P123_data_struct::~P123_data_struct() {
+  reset();
+}
+
+/**
+ * Proper reset and cleanup.
+ */
+void P123_data_struct::reset() {
+  # ifdef PLUGIN_123_DEBUG
+  addLog(LOG_LEVEL_INFO, F("P123 DEBUG Touchscreen reset."));
+  # endif // PLUGIN_123_DEBUG
+
+  delete touchscreen;
+  touchscreen = nullptr;
+  delete touchHandler;
+  touchHandler = nullptr;
+}
+
+/**
+ * Initialize data and set up the touchscreen.
+ */
+bool P123_data_struct::init(struct EventStruct *event) {
+  _rotation = P123_CONFIG_ROTATION;
+  _ts_x_res = P123_CONFIG_X_RES;
+  _ts_y_res = P123_CONFIG_Y_RES;
+
+  reset();
+
+  touchHandler = new (std::nothrow) ESPEasy_TouchHandler(static_cast<taskIndex_t>(P123_CONFIG_DISPLAY_TASK),
+                                                         static_cast<AdaGFXColorDepth>(P123_COLOR_DEPTH));
+
+  if (nullptr != touchHandler) {
+    touchHandler->init(event);
+
+    if (touchHandler->touchEnabled()) {
+      touchscreen = new (std::nothrow) BBCapTouch();
+
+      if (nullptr != touchscreen) {
+        touchscreen->setThreshold(P123_CONFIG_THRESHOLD);
+
+        P123_TouchType_e touchType = static_cast<P123_TouchType_e>(P123_GET_TOUCH_TYPE);
+
+        if (P123_TouchType_e::Automatic != touchType) { // Manual override
+          touchscreen->sensorType(getBBCapTouchType(touchType));
+          touchscreen->setI2CAddress(plugin_i2c_address(touchType));
+        }
+
+        if (touchscreen->init(-1, -1, P123_RESETPIN, P123_INTERRUPTPIN) != CT_SUCCESS) {
+          delete touchscreen;
+          touchscreen = nullptr;
+        } else {
+          setRotation(_rotation);
+        }
+      }
+    }
+
+  # ifdef PLUGIN_123_DEBUG
+    addLogMove(LOG_LEVEL_INFO,
+               concat(concat(F("P123 DEBUG Plugin"), nullptr != touchscreen ? F(" & touchscreen") : F("")), F(" initialized.")));
+  } else {
+    addLogMove(LOG_LEVEL_INFO, F("P123 DEBUG Touchscreen initialization FAILED."));
+  # endif // PLUGIN_123_DEBUG
+  }
+  return isInitialized();
+}
+
+/**
+ * mode: -2 = clear buttons in group, -3 = clear all buttongroups, -1 = draw buttons in group, 0 = initialize buttons
+ */
+void P123_data_struct::displayButtonGroup(struct EventStruct *event,
+                                          int16_t             buttonGroup,
+                                          int8_t              mode) {
+  # if TOUCH_FEATURE_EXTENDED_TOUCH
+
+  if (nullptr != touchHandler) {
+    touchHandler->displayButtonGroup(event, buttonGroup, mode);
+  }
+  # endif // if TOUCH_FEATURE_EXTENDED_TOUCH
+}
+
+/**
+ * (Re)Display a button
+ */
+bool P123_data_struct::displayButton(struct EventStruct *event,
+                                     const int8_t      & buttonNr,
+                                     int16_t             buttonGroup,
+                                     int8_t              mode) {
+  # if TOUCH_FEATURE_EXTENDED_TOUCH
+
+  if (nullptr != touchHandler) {
+    return touchHandler->displayButton(event, buttonNr, buttonGroup, mode);
+  }
+  # endif // if TOUCH_FEATURE_EXTENDED_TOUCH
+  return false;
+}
+
+/**
+ * Properly initialized? then true
+ */
+bool P123_data_struct::isInitialized() const {
+  return touchHandler != nullptr && (!touchHandler->touchEnabled() || touchscreen != nullptr);
+}
+
+/**
+ * Load the settings onto the webpage
+ */
+bool P123_data_struct::plugin_webform_load(struct EventStruct *event) {
+  if (nullptr != touchHandler) {
+    return touchHandler->plugin_webform_load(event);
+  }
+  return false;
+}
+
+/**
+ * Save the settings from the web page to flash
+ */
+bool P123_data_struct::plugin_webform_save(struct EventStruct *event) {
+  if (nullptr != touchHandler) {
+    const bool result = touchHandler->plugin_webform_save(event);
+    P123_CONFIG_VTYPE = touchHandler->get_device_valuecount(event); // Store 'locally'
+    return result;
+  }
+  return false;
+}
+
+/**
+ * Parse and execute the plugin commands, delegated to ESPEasy_TouchHandler
+ */
+bool P123_data_struct::plugin_write(struct EventStruct *event,
+                                    const String      & string) {
+  bool   success = false;
+  String command;
+  String subcommand;
+
+  command    = parseString(string, 1);
+  subcommand = parseString(string, 2);
+
+  if (isInitialized() && equals(command, F("touch"))) {
+    # ifdef PLUGIN_123_DEBUG
+
+    if (loglevelActiveFor(LOG_LEVEL_INFO)) {
+      addLog(LOG_LEVEL_INFO, strformat(F("P123 WRITE arguments Par1: %d, 2: %d, 3: %d, 4: %d"),
+                                       event->Par1, event->Par2, event->Par3, event->Par4));
+    }
+    # endif // ifdef PLUGIN_123_DEBUG
+
+    if (equals(subcommand, F("rot"))) {         // touch,rot,<0..3> : Set rotation to 0, 90, 180, 270 degrees
+      setRotation(static_cast<uint8_t>(event->Par2 % 4));
+      success = true;
+    } else if (equals(subcommand, F("flip"))) { // touch,flip,<0|1> : Flip rotation by 0 or 180 degrees
+      setRotationFlipped(event->Par2 > 0);
+      success = true;
+    } else {                                    // Rest of the commands handled by ESPEasy_TouchHandler
+      success = touchHandler->plugin_write(event, string);
+    }
+  }
+  return success;
+}
+
+/**
+ * Every 1/50th second we check if the screen is touched
+ */
+bool P123_data_struct::plugin_fifty_per_second(struct EventStruct *event) {
+  if (isInitialized() && touchHandler->touchEnabled()) {
+    if (touched()) {
+      int16_t x  = 0;
+      int16_t y  = 0;
+      int16_t z  = 0;
+      int16_t ox = 0;
+      int16_t oy = 0;
+      readData(x, y, z, ox, oy);
+
+      int16_t rx = x;             // Keep raw values
+      int16_t ry = y;
+      scaleRawToCalibrated(x, y); // Map to screen coordinates if so configured
+
+      return touchHandler->plugin_fifty_per_second(event, x, y, ox, oy, rx, ry, z);
+    } else {
+      touchHandler->releaseTouch(event);
+    }
+  }
+  return false;
+}
+
+/**
+ * Handle getting config values, delegated to ESPEasy_TouchHandler
+ */
+bool P123_data_struct::plugin_get_config_value(struct EventStruct *event,
+                                               String            & string) {
+  if (nullptr != touchHandler) {
+    return touchHandler->plugin_get_config_value(event, string);
+  }
+  return false;
+}
+
+/**
+ * Load the touch objects from the settings, and initialize then properly where needed.
+ */
+void P123_data_struct::loadTouchObjects(struct EventStruct *event) {
+  if (nullptr != touchHandler) {
+    touchHandler->loadTouchObjects(event);
+  }
+}
+
+/**
+ * Check if the screen is touched.
+ */
+bool P123_data_struct::touched() {
+  if (isInitialized()) {
+    return touchscreen->getSamples(&touchInfo) > 0; // 1 or more points touched
+  }
+  return false;
+}
+
+/**
+ * Read the raw data if the touchscreen is initialized.
+ */
+void P123_data_struct::readData(int16_t& x,
+                                int16_t& y,
+                                int16_t& z,
+                                int16_t& ox,
+                                int16_t& oy) {
+  if (isInitialized()) {
+    x  = touchInfo.x[0]; // Only 1 point used for now.
+    y  = touchInfo.y[0];
+    z  = touchInfo.pressure[0];
+    ox = touchInfo.x[0]; // Change of touch driver has made these arguments obsolete, but in use for touchHandler...
+    oy = touchInfo.y[0];
+  }
+}
+
+/**
+ * Set rotation
+ */
+void P123_data_struct::setRotation(uint8_t n) {
+  _rotation = n;
+
+  if (isInitialized()) {
+    const bool fl = touchHandler->_flipped;
+
+    switch (_rotation) { // Rotation is handled by touch driver, flipped handled here
+      case 0: touchscreen->setOrientation(fl ? 180 : 0, _ts_x_res, _ts_y_res); break;
+      case 1: touchscreen->setOrientation(fl ? 270 : 90, _ts_x_res, _ts_y_res); break;
+      case 2: touchscreen->setOrientation(fl ? 0 : 180, _ts_x_res, _ts_y_res); break;
+      case 3: touchscreen->setOrientation(fl ? 90 : 270, _ts_x_res, _ts_y_res); break;
+    }
+  }
+  # ifdef PLUGIN_123_DEBUG
+
+  if (loglevelActiveFor(LOG_LEVEL_INFO)) {
+    addLogMove(LOG_LEVEL_INFO, concat(F("P123 DEBUG Rotation set: "), _rotation));
+  }
+  # endif // PLUGIN_123_DEBUG
+}
+
+/**
+ * Set rotationFlipped
+ */
+void P123_data_struct::setRotationFlipped(bool flipped) {
+  touchHandler->_flipped = flipped;
+  # ifdef PLUGIN_123_DEBUG
+
+  if (loglevelActiveFor(LOG_LEVEL_INFO)) {
+    addLogMove(LOG_LEVEL_INFO, concat(F("P123 DEBUG RotationFlipped set: "), boolToString(flipped)));
+  }
+  # endif // PLUGIN_123_DEBUG
+}
+
+/**
+ * Check within the list of defined objects if we touched one of them.
+ * The smallest matching surface is selected if multiple objects overlap.
+ * Returns state, and sets selectedObjectName to the best matching object
+ */
+bool P123_data_struct::isValidAndTouchedTouchObject(const int16_t& x,
+                                                    const int16_t& y,
+                                                    String       & selectedObjectName,
+                                                    int8_t       & selectedObjectIndex) {
+  if (nullptr != touchHandler) {
+    return touchHandler->isValidAndTouchedTouchObject(x, y, selectedObjectName, selectedObjectIndex);
+  }
+  return false;
+}
+
+/**
+ * Get the index of a touch object by name or number
+ */
+int8_t P123_data_struct::getTouchObjectIndex(struct EventStruct *event,
+                                             const String      & touchObject,
+                                             bool                isButton) {
+  if (nullptr != touchHandler) {
+    return touchHandler->getTouchObjectIndex(event, touchObject, isButton);
+  }
+  return -1;
+}
+
+/**
+ * Set the enabled/disabled state of an object.
+ */
+bool P123_data_struct::setTouchObjectState(struct EventStruct *event,
+                                           const String      & touchObject,
+                                           bool                state) {
+  if (nullptr != touchHandler) {
+    return touchHandler->setTouchObjectState(event, touchObject, state);
+  }
+  return false;
+}
+
+/**
+ * Set the on/off state of a touch-button object.
+ */
+bool P123_data_struct::setTouchButtonOnOff(struct EventStruct *event,
+                                           const String      & touchObject,
+                                           bool                state) {
+  if (nullptr != touchHandler) {
+    return touchHandler->setTouchButtonOnOff(event, touchObject, state);
+  }
+  return false;
+}
+
+/**
+ * Scale the provided raw coordinates to screen-resolution coordinates if calibration is enabled/configured
+ */
+void P123_data_struct::scaleRawToCalibrated(int16_t& x,
+                                            int16_t& y) {
+  if ((nullptr != touchHandler) && touchHandler->isCalibrationActive()) {
+    int16_t lx = x - touchHandler->Touch_Settings.top_left.x;
+
+    if (lx <= 0) {
+      x = 0;
+    } else {
+      if (lx > touchHandler->Touch_Settings.bottom_right.x) {
+        lx = touchHandler->Touch_Settings.bottom_right.x;
+      }
+      float x_fact = static_cast<float>(touchHandler->Touch_Settings.bottom_right.x - touchHandler->Touch_Settings.top_left.x) /
+                     static_cast<float>(_ts_x_res);
+      x = static_cast<int16_t>(round(lx / x_fact));
+    }
+    int16_t ly = y - touchHandler->Touch_Settings.top_left.y;
+
+    if (ly <= 0) {
+      y = 0;
+    } else {
+      if (ly > touchHandler->Touch_Settings.bottom_right.y) {
+        ly = touchHandler->Touch_Settings.bottom_right.y;
+      }
+      float y_fact = (touchHandler->Touch_Settings.bottom_right.y - touchHandler->Touch_Settings.top_left.y) / _ts_y_res;
+      y = static_cast<int16_t>(round(ly / y_fact));
+    }
+  }
+}
+
+/**
+ * Get the current button group
+ */
+int16_t P123_data_struct::getButtonGroup() const {
+  if (nullptr != touchHandler) {
+    return touchHandler->getButtonGroup();
+  }
   return 0;
 }
 
+/**
+ * Check if a valid button group, optionally ignoring group 0
+ */
+bool P123_data_struct::validButtonGroup(int16_t buttonGroup,
+                                        bool    ignoreZero) {
+  # if TOUCH_FEATURE_EXTENDED_TOUCH
+
+  if (nullptr != touchHandler) {
+    return touchHandler->validButtonGroup(buttonGroup, ignoreZero);
+  }
+  # endif // if TOUCH_FEATURE_EXTENDED_TOUCH
+  return false;
+}
+
+/**
+ * Set the desired button group, must be between the minimum and maximum found values
+ */
+bool P123_data_struct::setButtonGroup(struct EventStruct *event,
+                                      int16_t             buttonGroup) {
+  # if TOUCH_FEATURE_EXTENDED_TOUCH
+
+  if (nullptr != touchHandler) {
+    return touchHandler->setButtonGroup(event, buttonGroup);
+  }
+  # endif // if TOUCH_FEATURE_EXTENDED_TOUCH
+  return false;
+}
+
+/**
+ * Increment button group, if max. group > 0 then min. group = 1
+ */
+bool P123_data_struct::nextButtonGroup(struct EventStruct *event) {
+  # if TOUCH_FEATURE_EXTENDED_TOUCH
+
+  if (nullptr != touchHandler) {
+    return touchHandler->nextButtonGroup(event);
+  }
+  # endif // if TOUCH_FEATURE_EXTENDED_TOUCH
+  return false;
+}
+
+/**
+ * Decrement button group, if max. group > 0 then min. group = 1
+ */
+bool P123_data_struct::prevButtonGroup(struct EventStruct *event) {
+  # if TOUCH_FEATURE_EXTENDED_TOUCH
+
+  if (nullptr != touchHandler) {
+    return touchHandler->prevButtonGroup(event);
+  }
+  # endif // if TOUCH_FEATURE_EXTENDED_TOUCH
+  return false;
+}
+
+/**
+ * Increment button group page (+10), if max. group > 0 then min. group page (+10) = 1
+ */
+bool P123_data_struct::nextButtonPage(struct EventStruct *event) {
+  # if TOUCH_FEATURE_EXTENDED_TOUCH
+
+  if (nullptr != touchHandler) {
+    return touchHandler->nextButtonPage(event);
+  }
+  # endif // if TOUCH_FEATURE_EXTENDED_TOUCH
+  return false;
+}
+
+/**
+ * Decrement button group page (-10), if max. group > 0 then min. group = 1
+ */
+bool P123_data_struct::prevButtonPage(struct EventStruct *event) {
+  # if TOUCH_FEATURE_EXTENDED_TOUCH
+
+  if (nullptr != touchHandler) {
+    return touchHandler->prevButtonPage(event);
+  }
+  # endif // if TOUCH_FEATURE_EXTENDED_TOUCH
+  return false;
+}
 
 #endif // ifdef USES_P123
