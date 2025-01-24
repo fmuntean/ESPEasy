@@ -1350,34 +1350,41 @@ void createRuleEvents(struct EventStruct *event) {
       addLog(LOG_LEVEL_ERROR, F("Not enough memory for event"));
       return;
     }
-    eventString += getTaskDeviceName(event->TaskIndex);
-    eventString += '#';
-    eventString += Cache.getTaskDeviceValueName(event->TaskIndex, 0);
-    eventString += '=';
-    eventString += '`';
-    if (appendCompleteStringvalue) {
-      eventString += event->String2;
-    } else {
-      eventString += event->String2.substring(0, 10);
-      eventString += F("...");
-      eventString += event->String2.substring(event->String2.length() - 10);
+    //MFD: only send rule events for task values with names
+    if (Cache.getTaskDeviceValueName(event->TaskIndex, 0).length()>0) {
+      eventString += getTaskDeviceName(event->TaskIndex);
+      eventString += '#';
+      eventString += Cache.getTaskDeviceValueName(event->TaskIndex, 0);
+      eventString += '=';
+      eventString += '`';
+      if (appendCompleteStringvalue) {
+        eventString += event->String2;
+      } else {
+        eventString += event->String2.substring(0, 10);
+        eventString += F("...");
+        eventString += event->String2.substring(event->String2.length() - 10);
+      }
+      eventString += '`';
+      eventQueue.addMove(std::move(eventString));    
     }
-    eventString += '`';
-    eventQueue.addMove(std::move(eventString));    
   } else if (Settings.CombineTaskValues_SingleEvent(event->TaskIndex)) {
     String eventvalues;
     reserve_special(eventvalues, 32); // Enough for most use cases, prevent lots of memory allocations.
-
     for (uint8_t varNr = 0; varNr < valueCount; varNr++) {
       if (varNr != 0) {
         eventvalues += ',';
       }
-      eventvalues += formatUserVarNoCheck(event, varNr);
+      //MFD: we skip variables with empty names
+      if (Cache.getTaskDeviceValueName(event->TaskIndex,varNr).length()>0  )
+        eventvalues += formatUserVarNoCheck(event, varNr);
     }
     eventQueue.add(event->TaskIndex, F("All"), eventvalues);
   } else {
     for (uint8_t varNr = 0; varNr < valueCount; varNr++) {
-      eventQueue.add(event->TaskIndex, Cache.getTaskDeviceValueName(event->TaskIndex, varNr), formatUserVarNoCheck(event, varNr));
+      //MFD: skip variables with empty names
+      String varName = Cache.getTaskDeviceValueName(event->TaskIndex, varNr);
+      if (varName.length()>0)
+        eventQueue.add(event->TaskIndex, varName, formatUserVarNoCheck(event, varNr));
     }
   }
 }

@@ -292,7 +292,7 @@ void loadDefaultTaskValueNames_ifEmpty(taskIndex_t TaskIndex) {
 
   // Restore the settings that were already set by the user
   for (uint8_t i = 0; i < VARS_PER_TASK; ++i) {
-    const bool isDefault = oldNames[i].isEmpty();
+    const bool isDefault = oldNames[i].isEmpty() & bitRead(ExtraTaskSettings.VariousBits[i], 1);
     ExtraTaskSettings.isDefaultTaskVarName(i, isDefault);
 
     if (!isDefault) {

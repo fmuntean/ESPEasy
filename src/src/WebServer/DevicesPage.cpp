@@ -397,7 +397,13 @@ void handle_devices_CopySubmittedSettings(taskIndex_t taskIndex, pluginID_t task
   {
     strncpy_webserver_arg(ExtraTaskSettings.TaskDeviceFormula[varNr], getPluginCustomArgName(F("TDF"), varNr));
     update_whenset_FormItemInt(getPluginCustomArgName(F("TDVD"), varNr), ExtraTaskSettings.TaskDeviceValueDecimals[varNr]);
-    strncpy_webserver_arg(ExtraTaskSettings.TaskDeviceValueNames[varNr], getPluginCustomArgName(F("TDVN"), varNr));
+    String varName =  getPluginCustomArgName(F("TDVN"), varNr);
+    if (varName.length()>0){
+      strncpy_webserver_arg(ExtraTaskSettings.TaskDeviceValueNames[varNr],varName);
+    }else{
+      //MFD: the user deleted the name on purpose
+      ExtraTaskSettings.isDefaultTaskVarName(varNr,0); //mark that is not the default
+    }
 # if FEATURE_PLUGIN_FILTER
     ExtraTaskSettings.enablePluginFilter(varNr, isFormItemChecked(getPluginCustomArgName(F("TDFIL"), varNr)));
 # endif // if FEATURE_PLUGIN_FILTER
@@ -768,12 +774,13 @@ void handle_devicess_ShowAllTasksTable(uint8_t page)
 
           for (uint8_t varNr = 0; varNr < valueCount; varNr++)
           {
-            if (validPluginID_fullcheck(Settings.getPluginID_for_task(x)))
+            String varName = Cache.getTaskDeviceValueName(x, varNr);
+            if (varName.length()>0 && validPluginID_fullcheck(Settings.getPluginID_for_task(x)))
             {
               pluginWebformShowValue(
                 x,
                 varNr,
-                Cache.getTaskDeviceValueName(x, varNr),
+                varName,
                 formatUserVarNoCheck(&TempEvent, varNr));
             }
           }
