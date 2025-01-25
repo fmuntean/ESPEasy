@@ -149,8 +149,6 @@
 #define SHOW_SYSINFO_JSON 1  //Enables the sysinfo_json page (by default is enabled when WEBSERVER_NEW_UI is enabled too)
 
 
-#undef BUILD_NO_DEBUG
-
 
 
 //###########################################################################################
